@@ -41,10 +41,11 @@ L'interface est en français et s'appuie sur Python et PySide6 (Qt).
 - Enregistrement automatique local, sauvegarde JSON manuelle, export CSV et
   historique Annuler/Rétablir.
 - Thème sombre ou clair, couleur d'accentuation, police, échelle de l'interface
-  et plusieurs modes d'affichage.
+  et résolution de la fenêtre, ainsi que plusieurs modes d'affichage.
 - Vérification de la disponibilité d'une nouvelle version publiée sur GitHub
   au démarrage. Cette vérification ne met pas l'application à jour
   automatiquement.
+- Accès au dépôt GitHub de l'application depuis la toolbar avec « À propos ».
 
 ## Cursus intégré
 
@@ -153,6 +154,11 @@ enregistrées.
 Le menu **Préférences** permet de configurer l'apparence, les seuils indicatifs,
 la règle facultative de note minimale par module et l'objectif TOEIC.
 
+La résolution de fenêtre se règle dans **Préférences > Paramètres**. Le mode
+**Automatique** conserve le dimensionnement adapté à l'écran; les résolutions
+prédéfinies sont limitées à l'espace disponible. Le réglage d'échelle de
+l'interface reste indépendant.
+
 Le menu **Affichage** propose les modes Confortable, Grille (2 colonnes) et
 Résumé compact, ainsi que le plein écran. Les menus **Fichier** et **Édition**
 permettent respectivement de sauvegarder, exporter, effacer les notes et
@@ -168,6 +174,7 @@ Valeurs initiales de l'application :
 | Police | Segoe UI |
 | Taille du texte | 10 px |
 | Échelle de l'interface | 100 % |
+| Résolution de la fenêtre | Automatique |
 | Mode d'affichage | Confortable |
 | Seuil indicatif | 10/20 |
 | Note minimale par module | Désactivée (valeur réglable : 6/20 par défaut) |

@@ -4,6 +4,8 @@ from PySide6.QtGui import QColor, QFont
 
 from PySide6.QtWidgets import QVBoxLayout, QLabel, QPushButton, QComboBox, QDialog, QFormLayout, QFontComboBox, QSpinBox, QDoubleSpinBox, QDialogButtonBox, QColorDialog, QCheckBox
 
+from app_data import DISPLAY_RESOLUTIONS
+
 
 class SettingsDialog(QDialog):
     """Dialogue des réglages visuels : thème, accent, police et taille."""
@@ -41,6 +43,14 @@ class SettingsDialog(QDialog):
         self.ui_scale.setValue(int(self.settings.get("ui_scale", 100)))
         self.ui_scale.setSuffix(" %")
         form.addRow("Mise à l'échelle de l'interface", self.ui_scale)
+
+        self.display_resolution = QComboBox()
+        self.display_resolution.addItems(DISPLAY_RESOLUTIONS)
+        resolution = self.settings.get("display_resolution", "Automatique")
+        if not isinstance(resolution, str) or resolution not in DISPLAY_RESOLUTIONS:
+            resolution = "Automatique"
+        self.display_resolution.setCurrentText(resolution)
+        form.addRow("Résolution de la fenêtre", self.display_resolution)
 
         self.validation_threshold = QDoubleSpinBox()
         self.validation_threshold.setRange(0.0, 20.0)
@@ -96,6 +106,7 @@ class SettingsDialog(QDialog):
         self.settings["font_family"] = self.font_combo.currentFont().family()
         self.settings["font_size"] = self.font_size.value()
         self.settings["ui_scale"] = self.ui_scale.value()
+        self.settings["display_resolution"] = self.display_resolution.currentText()
         self.settings["validation_threshold"] = self.validation_threshold.value()
         self.settings["enforce_module_minimum"] = self.module_minimum_enabled.isChecked()
         self.settings["module_minimum"] = self.module_minimum.value()

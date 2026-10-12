@@ -191,12 +191,22 @@ MODULE_STATUSES = ("Pas commencé", "En cours", "Terminé")
 
 APP_ICON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "PyPrint.ico")
 
+DISPLAY_RESOLUTIONS = {
+    "Automatique": None,
+    "1280 × 720": (1280, 720),
+    "1366 × 768": (1366, 768),
+    "1600 × 900": (1600, 900),
+    "1920 × 1080": (1920, 1080),
+    "2560 × 1440": (2560, 1440),
+}
+
 DEFAULT_SETTINGS = {
     "theme": "Sombre",
     "accent": "#3b82f6",
     "font_family": "Segoe UI",
     "font_size": 10,
     "ui_scale": 100,
+    "display_resolution": "Automatique",
     "view_mode": "Confortable",
     "dashboard_year": "Année 1 (IPSI 1)",
     # Seuils indicatifs, modifiables dans les paramètres. La décision du jury

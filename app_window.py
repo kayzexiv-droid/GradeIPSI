@@ -12,14 +12,17 @@ from PySide6.QtGui import QAction, QActionGroup, QFont, QKeySequence, QIcon, QDe
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QFrame, QMessageBox, QFileDialog, QComboBox, QDialog, QStatusBar
 
-from app_data import APP_ICON_PATH, CURRICULUM_DATA, DEFAULT_SETTINGS, SAVE_FILE, make_stylesheet
+from app_data import APP_ICON_PATH, CURRICULUM_DATA, DEFAULT_SETTINGS, DISPLAY_RESOLUTIONS, SAVE_FILE, make_stylesheet
 
 from dashboard_widgets import GradeSimulationWidget, YearRecapWidget
 
 from grade_widgets import YearTabWidget
 
 from settings_dialog import SettingsDialog
-from update_checker import ReleaseChecker
+from update_checker import ReleaseChecker, load_current_version
+
+
+PROJECT_URL = "https://github.com/kayzexiv-droid/GradeIPSI"
 
 
 class GradeTrackerApp(QMainWindow):
@@ -100,7 +103,17 @@ class GradeTrackerApp(QMainWindow):
         title_box = QVBoxLayout()
         title = QLabel("Image Photonique & Smart Industries · Suivi de notes")
         title.setStyleSheet("font-size: 22px; font-weight: 800;")
-        subtitle = QLabel("IPSI · Notes, ECTS et progression sur trois années")
+        version_error = None
+        try:
+            version = load_current_version()
+        except ValueError as error:
+            version = "indisponible"
+            version_error = str(error)
+        subtitle = QLabel(
+            f"IPSI · Notes, ECTS et progression sur trois années · v{version}"
+        )
+        if version_error is not None:
+            subtitle.setToolTip(version_error)
         subtitle.setStyleSheet("color: #94a3b8;")
         title_box.addWidget(title)
         title_box.addWidget(subtitle)
@@ -160,6 +173,9 @@ class GradeTrackerApp(QMainWindow):
         self.action_settings = QAction("⚙ Paramètres…", self)
         self.action_settings.triggered.connect(self.open_settings)
 
+        self.action_about = QAction("À propos", self)
+        self.action_about.triggered.connect(self.open_project_page)
+
         self.action_reset = QAction("Effacer toutes les notes…", self)
         self.action_reset.triggered.connect(self.reset_data)
 
@@ -201,6 +217,13 @@ class GradeTrackerApp(QMainWindow):
 
         settings_menu = self.menuBar().addMenu("Préférences")
         settings_menu.addAction(self.action_settings)
+        self.menuBar().addAction(self.action_about)
+
+    def open_project_page(self):
+        if not QDesktopServices.openUrl(QUrl(PROJECT_URL)):
+            self.statusBar().showMessage(
+                "Impossible d'ouvrir la page GitHub de l'application.", 6000
+            )
 
     def set_dashboard_year(self, year_name):
         if year_name not in self.year_tabs:
@@ -477,6 +500,7 @@ class GradeTrackerApp(QMainWindow):
 
     def apply_settings(self, settings, refresh_history=True):
         self.settings.update(settings)
+        self._apply_display_resolution()
         self.setStyleSheet(make_stylesheet(self.settings))
         app = QApplication.instance()
         if app is not None:
@@ -523,6 +547,31 @@ class GradeTrackerApp(QMainWindow):
             self.simulation_tab.refresh_from_data()
         if refresh_history and not self._restoring:
             self.save_data_quietly()
+
+    def _apply_display_resolution(self):
+        resolution_name = self.settings.get("display_resolution", "Automatique")
+        if not isinstance(resolution_name, str) or resolution_name not in DISPLAY_RESOLUTIONS:
+            resolution_name = "Automatique"
+            self.settings["display_resolution"] = resolution_name
+
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is None:
+            return
+
+        available = screen.availableGeometry()
+        requested_size = DISPLAY_RESOLUTIONS[resolution_name]
+        if requested_size is None:
+            width = min(1320, int(available.width() * 0.96))
+            height = min(900, int(available.height() * 0.94))
+        else:
+            width = min(requested_size[0], available.width())
+            height = min(requested_size[1], available.height())
+        self.setGeometry(
+            available.x() + (available.width() - width) // 2,
+            available.y() + (available.height() - height) // 2,
+            width,
+            height,
+        )
 
     def reset_data(self):
         reply = QMessageBox.question(

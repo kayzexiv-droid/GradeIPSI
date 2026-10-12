@@ -16,7 +16,7 @@ RELEASE_API_URL = (
 _VERSION_PATTERN = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$", re.IGNORECASE)
 
 
-def _load_current_version():
+def load_current_version():
     app_directory = getattr(
         sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__))
     )
@@ -64,7 +64,7 @@ class ReleaseChecker(QObject):
             return
 
         try:
-            self._current_version = _load_current_version()
+            self._current_version = load_current_version()
         except ValueError as error:
             self.check_failed.emit(str(error))
             return
