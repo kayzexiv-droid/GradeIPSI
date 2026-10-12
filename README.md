@@ -179,10 +179,15 @@ Ils ne modifient pas les notes saisies.
 ## Sauvegarde et export
 
 - Les notes et les préférences sont enregistrées automatiquement dans
-  `notes_data.json`, dans le répertoire courant de l'application. Le menu
-  **Fichier > Enregistrer JSON** (ou `Ctrl+S`) force aussi une sauvegarde.
+  `%APPDATA%\GradeIPSI\notes_data.json` (par exemple
+  `C:\Users\<utilisateur>\AppData\Roaming\GradeIPSI\notes_data.json`). Le
+  dossier est créé automatiquement. Le menu **Fichier > Enregistrer JSON**
+  (ou `Ctrl+S`) force aussi une sauvegarde.
 - `notes_data.json` est un fichier local lisible au format JSON. Pensez à en
   conserver une copie si vous souhaitez transférer ou archiver vos données.
+- Si aucune sauvegarde AppData n'existe mais qu'un ancien `notes_data.json`
+  est présent dans le dossier de lancement, l'application le charge puis en
+  copie le contenu vers AppData. Le fichier d'origine n'est pas supprimé.
 - **Fichier > Exporter CSV** (ou `Ctrl+E`) crée un fichier CSV en UTF-8 avec
   séparateur point-virgule. Il comprend les notes, états, poids, ECTS,
   complétudes, moyennes et diagnostics indicatifs.

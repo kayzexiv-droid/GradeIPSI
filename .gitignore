@@ -19,6 +19,7 @@ GradeIPSI.spec
 # Build and test artifacts
 build/
 dist/
+Output/
 *.egg-info/
 .pytest_cache/
 .mypy_cache/

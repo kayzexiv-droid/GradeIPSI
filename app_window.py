@@ -322,8 +322,12 @@ class GradeTrackerApp(QMainWindow):
         self._update_history_actions()
 
     def save_data(self):
-        self.save_data_quietly()
-        QMessageBox.information(self, "Sauvegarde", f"Les notes et paramètres ont été enregistrés dans {SAVE_FILE}.")
+        if self.save_data_quietly():
+            QMessageBox.information(
+                self,
+                "Sauvegarde",
+                f"Les notes et paramètres ont été enregistrés dans {SAVE_FILE}.",
+            )
 
     def save_data_quietly(self):
         payload = {
@@ -333,6 +337,7 @@ class GradeTrackerApp(QMainWindow):
         }
         temporary = SAVE_FILE + ".tmp"
         try:
+            os.makedirs(os.path.dirname(SAVE_FILE), exist_ok=True)
             with open(temporary, "w", encoding="utf-8") as file:
                 json.dump(payload, file, ensure_ascii=False, indent=2)
             os.replace(temporary, SAVE_FILE)
@@ -344,12 +349,24 @@ class GradeTrackerApp(QMainWindow):
                 pass
             if hasattr(self, "statusBar"):
                 self.statusBar().showMessage(f"Erreur de sauvegarde JSON : {error}", 6000)
+            return False
+        return True
 
     def load_data(self):
-        if not os.path.exists(SAVE_FILE):
+        legacy_file = os.path.abspath("notes_data.json")
+        load_file = SAVE_FILE
+        migrating_legacy_data = (
+            not os.path.exists(SAVE_FILE)
+            and os.path.isfile(legacy_file)
+            and os.path.normcase(legacy_file)
+            != os.path.normcase(os.path.abspath(SAVE_FILE))
+        )
+        if migrating_legacy_data:
+            load_file = legacy_file
+        if not os.path.exists(load_file):
             return
         try:
-            with open(SAVE_FILE, "r", encoding="utf-8") as file:
+            with open(load_file, "r", encoding="utf-8") as file:
                 payload = json.load(file)
             # Rétrocompatibilité avec l'ancien JSON qui stockait directement les années à la racine.
             years_data = payload.get("years", payload) if isinstance(payload, dict) else {}
@@ -365,7 +382,13 @@ class GradeTrackerApp(QMainWindow):
                 self._restoring = False
             self.apply_settings(self.settings, refresh_history=False)
             self.update_global_summary()
-            self.statusBar().showMessage(f"Notes chargées depuis {SAVE_FILE}.", 4000)
+            if migrating_legacy_data:
+                if self.save_data_quietly():
+                    self.statusBar().showMessage(
+                        f"Anciennes notes copiées vers {SAVE_FILE}.", 6000
+                    )
+            else:
+                self.statusBar().showMessage(f"Notes chargées depuis {SAVE_FILE}.", 4000)
         except (OSError, json.JSONDecodeError, TypeError, ValueError) as error:
             self.statusBar().showMessage(f"Impossible de charger le JSON : {error}", 7000)
 

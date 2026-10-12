@@ -181,7 +181,11 @@ CURRICULUM_DATA = {
     }
 }
 
-SAVE_FILE = "notes_data.json"
+_USER_APP_DATA = os.environ.get("APPDATA") or os.path.join(
+    os.path.expanduser("~"), "AppData", "Roaming"
+)
+APP_DATA_DIR = os.path.join(_USER_APP_DATA, "GradeIPSI")
+SAVE_FILE = os.path.join(APP_DATA_DIR, "notes_data.json")
 
 MODULE_STATUSES = ("Pas commencé", "En cours", "Terminé")
 
