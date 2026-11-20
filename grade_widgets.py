@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt, QLocale
 
 from PySide6.QtGui import QDoubleValidator, QIntValidator, QKeySequence, QShortcut
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit, QFrame, QScrollArea, QComboBox, QToolButton, QProgressBar, QSizePolicy
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit, QFrame, QScrollArea, QComboBox, QToolButton, QProgressBar, QSizePolicy, QTabWidget
 
 from app_data import DEFAULT_SETTINGS, MODULE_STATUSES, calculate_weighted_metrics
 
@@ -56,7 +56,9 @@ class BlockCardWidget(QFrame):
         layout.setSpacing(9)
 
         header = QHBoxLayout()
-        self.lbl_title = QLabel(f"{self.block_data['name']}  ·  {self.block_data['ects']} ECTS")
+        ects = self.block_data["ects"]
+        detail = f"{ects} ECTS" if ects else "Validation séparée"
+        self.lbl_title = QLabel(f"{self.block_data['name']}  ·  {detail}")
         self.lbl_title.setProperty("class", "BlockHeader")
         self.lbl_title.setWordWrap(True)
         self.lbl_average = QLabel("— / 20")
@@ -86,6 +88,8 @@ class BlockCardWidget(QFrame):
         self.progress.setTextVisible(False)
         self.progress.setFixedHeight(8)
         self.progress.setToolTip("Progression de la moyenne du bloc sur 20")
+        self.lbl_average.setVisible(bool(ects))
+        self.progress.setVisible(bool(ects))
         layout.addWidget(self.progress)
 
         self.details_widget = QWidget()
@@ -103,7 +107,7 @@ class BlockCardWidget(QFrame):
         grid = QGridLayout()
         self.module_grid = grid
         grid.setHorizontalSpacing(9)
-        grid.setVerticalSpacing(6)
+        grid.setVerticalSpacing(8)
         grid.setColumnStretch(0, 1)
         grid.setColumnMinimumWidth(1, 48)
         grid.setColumnMinimumWidth(2, 72)
@@ -125,8 +129,11 @@ class BlockCardWidget(QFrame):
         for row, module in enumerate(self.block_data["modules"], start=1):
             name_label = QLabel(module["name"])
             name_label.setWordWrap(True)
-            weight_label = QLabel(f"{module['weight']} %")
+            weight = module["weight"]
+            weight_label = QLabel("—" if weight is None else f"{weight:g} %")
             weight_label.setAlignment(Qt.AlignCenter)
+            if weight is None:
+                weight_label.setToolTip("Aucun poids indiqué dans la maquette.")
             grade_input = QLineEdit()
             grade_input.setFixedWidth(72)
             grade_input.setAlignment(Qt.AlignCenter)
@@ -135,6 +142,12 @@ class BlockCardWidget(QFrame):
             grade_input.textChanged.connect(self.on_input_changed)
             grade_input.setAccessibleName(f"Note sur 20 · {module['name']}")
             grade_input.setToolTip("Saisissez une note de 0 à 20. Entrée passe au module suivant.")
+            if module.get("status_only"):
+                grade_input.setEnabled(False)
+                grade_input.setPlaceholderText("—")
+                grade_input.setToolTip("Suivi par état uniquement.")
+            elif weight is None:
+                grade_input.setToolTip("Note suivie séparément de la moyenne.")
             status_selector = QComboBox()
             status_selector.setObjectName("ModuleStatus")
             status_selector.setFixedWidth(110)
@@ -160,7 +173,7 @@ class BlockCardWidget(QFrame):
             grid.addWidget(status_selector, row, 3)
             grid.addWidget(target_label, row, 4)
             self.inputs[module["name"]] = {
-                "weight": float(module["weight"]),
+                "weight": weight,
                 "name_label": name_label,
                 "input": grade_input,
                 "weight_label": weight_label,
@@ -168,14 +181,24 @@ class BlockCardWidget(QFrame):
                 "target_lbl": target_label,
                 "matches_filter": True,
             }
-            input_index = len(self.grade_input_order)
-            self.grade_input_order.append(grade_input)
-            grade_input.returnPressed.connect(
-                lambda index=input_index: self.focus_next_grade(index)
-            )
+            if grade_input.isEnabled():
+                input_index = len(self.grade_input_order)
+                self.grade_input_order.append(grade_input)
+                grade_input.returnPressed.connect(
+                    lambda index=input_index: self.focus_next_grade(index)
+                )
             self.update_module_status_style(status_selector, MODULE_STATUSES[0])
 
         details_layout.addLayout(grid)
+        total_weight = sum(item["weight"] for _, item in self.weighted_modules())
+        if total_weight and total_weight != 100:
+            note = QLabel(
+                f"Total des coefficients de la maquette : {total_weight:g} %. "
+                "La moyenne du bloc est calculée sur ce total."
+            )
+            note.setProperty("class", "Muted")
+            note.setWordWrap(True)
+            details_layout.addWidget(note)
         layout.addWidget(self.details_widget)
         self.recalculate()
 
@@ -185,7 +208,7 @@ class BlockCardWidget(QFrame):
 
     def focus_grade_for_status(self, module_name, status):
         grade_input = self.inputs[module_name]["input"]
-        if status == "En cours" and not grade_input.text().strip():
+        if status == "En cours" and grade_input.isEnabled() and not grade_input.text().strip():
             grade_input.setFocus()
 
     def update_module_status_style(self, selector, status):
@@ -257,15 +280,17 @@ class BlockCardWidget(QFrame):
         return value
 
     def recalculate(self):
-        entered_weight = 0.0
-        weighted_sum = 0.0
-        missing_weight = 0.0
-        missing_count = 0
-        for item in self.inputs.values():
+        if not self.block_data["ects"]:
+            done = sum(item["status"].currentText() == "Terminé" for item in self.inputs.values())
+            self.lbl_completion.setText(f"Suivi : {done}/{len(self.inputs)}")
+            self.lbl_target_info.setText("Élément suivi séparément de la moyenne et des ECTS.")
+            return
+
+        metrics = self.get_block_metrics()
+        missing_count = metrics["missing_count"]
+        for _, item in self.weighted_modules():
             value = self.parse_grade(item["input"].text())
             if value is None:
-                missing_weight += item["weight"]
-                missing_count += 1
                 item["input"].setStyleSheet("")
                 item["input"].setToolTip(
                     "Aucune note saisie. Entrez une note de 0 à 20."
@@ -273,8 +298,6 @@ class BlockCardWidget(QFrame):
                 item["target_lbl"].setText("—")
                 item["target_lbl"].setStyleSheet("color: #94a3b8;")
             else:
-                weighted_sum += value * item["weight"]
-                entered_weight += item["weight"]
                 grade_color = "#ef4444" if value < 8 else "#f59e0b" if value < 10 else "#10b981"
                 item["input"].setStyleSheet(
                     f"QLineEdit {{ border: 1px solid {grade_color}; }}"
@@ -286,11 +309,10 @@ class BlockCardWidget(QFrame):
                 item["target_lbl"].setText("Saisi")
                 item["target_lbl"].setStyleSheet("color: #64748b; font-weight: 600;")
 
-        current_avg = weighted_sum / entered_weight if entered_weight else None
-        total_weight_for_progress = sum(item["weight"] for item in self.inputs.values())
-        completion = (entered_weight / total_weight_for_progress * 100.0) if total_weight_for_progress else 0.0
+        current_avg = metrics["provisional_average"]
+        completion = metrics["completion_pct"]
         self.lbl_completion.setText(f"Notes : {completion:.0f} %")
-        self.lbl_completion.setToolTip(f"{sum(1 for item in self.inputs.values() if self.parse_grade(item['input'].text()) is not None)}/{len(self.inputs)} modules renseignés")
+        self.lbl_completion.setToolTip(f"{metrics['entered_count']}/{metrics['module_count']} modules pondérés renseignés")
         if current_avg is None:
             self.lbl_average.setText("— / 20")
             self.progress.setValue(0)
@@ -299,9 +321,8 @@ class BlockCardWidget(QFrame):
             self.progress.setValue(round(current_avg * 10))
         self.update_badge_style(current_avg)
 
-        if missing_count > 0 and missing_weight > 0:
-            total_weight = sum(item["weight"] for item in self.inputs.values())
-            needed = (10.0 * total_weight - weighted_sum) / missing_weight
+        needed = metrics["target_needed"]
+        if needed is not None:
             if needed <= 0:
                 target_text, color = "Objectif déjà atteint", "#10b981"
             elif needed > 20:
@@ -310,7 +331,7 @@ class BlockCardWidget(QFrame):
                 target_text, color = f"Viser {needed:.2f}/20 sur les modules restants", "#38bdf8"
             self.lbl_target_info.setText(f"{missing_count} module(s) sans note · {target_text}")
             self.lbl_target_info.setStyleSheet(f"color: {color}; font-weight: 600;")
-            for item in self.inputs.values():
+            for _, item in self.weighted_modules():
                 if self.parse_grade(item["input"].text()) is None:
                     item["target_lbl"].setText("—" if needed > 20 else ("0" if needed <= 0 else f"{needed:.2f}"))
                     item["target_lbl"].setStyleSheet(f"color: {color}; font-weight: 700;")
@@ -329,10 +350,15 @@ class BlockCardWidget(QFrame):
             style = "background-color: #064e3b; color: #a7f3d0; border: 1px solid #10b981; border-radius: 7px; padding: 6px 8px; font-weight: 800;"
         self.lbl_average.setStyleSheet(style)
 
+    def weighted_modules(self):
+        return (
+            (name, item) for name, item in self.inputs.items() if item["weight"] is not None
+        )
+
     def get_block_metrics(self, target=10.0, module_minimum=None):
         weighted_values = [
             (item["weight"], self.parse_grade(item["input"].text()))
-            for item in self.inputs.values()
+            for _, item in self.weighted_modules()
         ]
         return calculate_weighted_metrics(weighted_values, target=target, module_minimum=module_minimum)
 
@@ -377,13 +403,17 @@ class YearTabWidget(QWidget):
         self.on_data_changed = on_data_changed
         self.settings_provider = settings_provider or (lambda: DEFAULT_SETTINGS)
         self.block_widgets = []
+        self.blocks_by_semester = {}
+        self.module_scrolls = {}
+        self.semester_tabs = None
+        self.uses_annual_alternance = bool(year_config.get("alternance_ects", 23))
         self.view_mode = "Confortable"
         self.init_ui()
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(12, 12, 12, 12)
-        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(16, 14, 16, 14)
+        main_layout.setSpacing(14)
 
         summary_card = QFrame()
         summary_card.setObjectName("Card")
@@ -417,7 +447,9 @@ class YearTabWidget(QWidget):
             "Moyenne provisoire calculée avec les notes saisies et pondérée selon la complétude."
         )
         self.lbl_complete_avg.setToolTip(
-            "Moyenne calculée uniquement à partir des blocs entièrement notés et de l'alternance notée."
+            "Moyenne calculée à partir des blocs entièrement notés et de l'alternance notée."
+            if self.uses_annual_alternance else
+            "Moyenne calculée à partir des blocs entièrement notés des deux semestres."
         )
         self.lbl_ects_info.setToolTip(
             "Les ECTS évalués et acquis sont estimatifs et ne remplacent pas la validation officielle."
@@ -428,7 +460,11 @@ class YearTabWidget(QWidget):
         general_layout = QHBoxLayout(general_card)
         general_layout.setContentsMargins(15, 10, 15, 10)
         general_layout.setSpacing(12)
-        general_layout.addWidget(QLabel("<b>Alternance (/20)</b>"))
+        self.lbl_alternance = QLabel(
+            "<b>Alternance (/20)</b>" if self.uses_annual_alternance
+            else "<b>Ancienne note d'alternance</b>"
+        )
+        general_layout.addWidget(self.lbl_alternance)
         self.inp_alternance = QLineEdit()
         self.inp_alternance.setFixedWidth(90)
         self.inp_alternance.setAlignment(Qt.AlignCenter)
@@ -438,9 +474,12 @@ class YearTabWidget(QWidget):
         self.inp_alternance.setValidator(alt_validator)
         self.inp_alternance.textChanged.connect(self.on_internal_changed)
         general_layout.addWidget(self.inp_alternance)
-        separator = QLabel("  ·  ")
-        separator.setStyleSheet("color: #94a3b8;")
-        general_layout.addWidget(separator)
+        if not self.uses_annual_alternance:
+            self.inp_alternance.setReadOnly(True)
+            self.inp_alternance.setToolTip(
+                "Note issue de l'ancienne maquette, conservée hors de la moyenne. "
+                "Les nouvelles notes se saisissent dans le bloc Apprentissage du semestre."
+            )
         general_layout.addWidget(QLabel("<b>Score TOEIC</b>"))
         self.inp_toeic = QLineEdit()
         self.inp_toeic.setFixedWidth(100)
@@ -455,19 +494,12 @@ class YearTabWidget(QWidget):
         general_layout.addWidget(self.lbl_toeic_status, 1)
         main_layout.addWidget(general_card)
 
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.blocks_container = QWidget()
-        self.blocks_container_layout = QVBoxLayout(self.blocks_container)
-        self.blocks_container_layout.setContentsMargins(1, 1, 7, 1)
-        self.blocks_container_layout.setSpacing(12)
         for block_data in self.year_config["blocks"]:
             block = BlockCardWidget(
                 block_data, self.on_internal_changed, self.settings_provider
             )
             self.block_widgets.append(block)
-            self.blocks_container_layout.addWidget(block)
-        self.blocks_container_layout.addStretch(1)
+            self.blocks_by_semester.setdefault(block_data.get("semester"), []).append(block)
 
         filter_row = QHBoxLayout()
         self.module_search = QLineEdit()
@@ -492,37 +524,48 @@ class YearTabWidget(QWidget):
         self.search_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
         self.search_shortcut.setContext(Qt.WidgetWithChildrenShortcut)
         self.search_shortcut.activated.connect(self.module_search.setFocus)
-        self.scroll.setWidget(self.blocks_container)
-        main_layout.addWidget(self.scroll, 1)
-        self.apply_module_filters()
+        if None not in self.blocks_by_semester:
+            self.semester_tabs = QTabWidget()
+            self.semester_tabs.setObjectName("SemesterTabs")
+            self.semester_tabs.setAccessibleName("Semestres de la troisième année")
+            main_layout.addWidget(self.semester_tabs, 1)
+        for index, semester in enumerate(self.blocks_by_semester, start=1):
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(QFrame.NoFrame)
+            self.module_scrolls[semester] = scroll
+            if self.semester_tabs is None:
+                main_layout.addWidget(scroll, 1)
+            else:
+                self.semester_tabs.addTab(scroll, f"Semestre {index} · S{semester}")
+        if self.semester_tabs is not None:
+            self.semester_tabs.currentChanged.connect(self.apply_module_filters)
+        self.set_view_mode(self.view_mode)
         self.update_year_summary()
 
     def set_view_mode(self, mode):
         self.view_mode = mode
-        if mode == "Grille (2 colonnes)":
-            for block in self.block_widgets:
-                block.set_view_mode("Confortable")
+        grid_mode = mode == "Grille (2 colonnes)"
+        card_mode = "Confortable" if grid_mode else mode
+        for semester, blocks in self.blocks_by_semester.items():
             new_container = QWidget()
-            new_layout = QGridLayout(new_container)
-            new_layout.setContentsMargins(1, 1, 7, 1)
-            new_layout.setHorizontalSpacing(12)
-            new_layout.setVerticalSpacing(12)
-            for index, block in enumerate(self.block_widgets):
+            new_container.setObjectName("ModuleList")
+            new_layout = QGridLayout(new_container) if grid_mode else QVBoxLayout(new_container)
+            new_layout.setContentsMargins(1, 5, 8, 4)
+            new_layout.setSpacing(14)
+            for index, block in enumerate(blocks):
                 block.setParent(new_container)
-                new_layout.addWidget(block, index // 2, index % 2)
-            new_layout.setRowStretch((len(self.block_widgets) + 1) // 2, 1)
-        else:
-            new_container = QWidget()
-            new_layout = QVBoxLayout(new_container)
-            new_layout.setContentsMargins(1, 1, 7, 1)
-            new_layout.setSpacing(12)
-            for block in self.block_widgets:
-                block.setParent(new_container)
-                block.set_view_mode("Résumé compact" if mode == "Résumé compact" else "Confortable")
-                new_layout.addWidget(block)
-            new_layout.addStretch(1)
-        self.blocks_container = new_container
-        self.scroll.setWidget(new_container)
+                block.set_view_mode(card_mode)
+                if grid_mode:
+                    new_layout.addWidget(block, index // 2, index % 2)
+                else:
+                    new_layout.addWidget(block)
+            if grid_mode:
+                new_layout.setRowStretch((len(blocks) + 1) // 2, 1)
+            else:
+                new_layout.addStretch(1)
+            self.module_scrolls[semester].setWidget(new_container)
+        self.apply_module_filters()
 
     def on_internal_changed(self):
         self.apply_module_filters()
@@ -538,10 +581,18 @@ class YearTabWidget(QWidget):
         )
         visible_modules = 0
         total_modules = 0
+        active_semester = None
+        if self.semester_tabs is not None:
+            active_scroll = self.semester_tabs.currentWidget()
+            active_semester = next(
+                (semester for semester, scroll in self.module_scrolls.items() if scroll is active_scroll),
+                None,
+            )
         for block in self.block_widgets:
             block_matches = 0
+            in_active_semester = block.block_data.get("semester") == active_semester
             for module_name, item in block.inputs.items():
-                total_modules += 1
+                total_modules += in_active_semester
                 grade_entered = bool(item["input"].text().strip())
                 matches = (
                     query in module_name.casefold()
@@ -559,7 +610,7 @@ class YearTabWidget(QWidget):
                 item["weight_label"].setVisible(matches and not block.compact_columns)
                 item["target_lbl"].setVisible(matches and not block.compact_columns)
                 if matches:
-                    visible_modules += 1
+                    visible_modules += in_active_semester
                     block_matches += 1
             block.setVisible(block_matches > 0)
         if hasattr(self, "lbl_module_count"):
@@ -568,6 +619,9 @@ class YearTabWidget(QWidget):
             )
 
     def update_year_summary(self):
+        show_alternance = self.uses_annual_alternance or bool(self.inp_alternance.text().strip())
+        self.lbl_alternance.setVisible(show_alternance)
+        self.inp_alternance.setVisible(show_alternance)
         settings = self.settings_provider() or DEFAULT_SETTINGS
         toeic_target = int(settings.get("toeic_target", 785))
         toeic_text = self.inp_toeic.text().strip() if hasattr(self, "inp_toeic") else ""
@@ -589,16 +643,15 @@ class YearTabWidget(QWidget):
         metrics = self.get_year_metrics()
         provisional = metrics["provisional_average"]
         complete = metrics["complete_average"]
-        if provisional is None:
-            self.lbl_year_avg.setText("Moyenne provisoire : — / 20")
-        else:
-            self.lbl_year_avg.setText(f"Moyenne provisoire : {provisional:.2f} / 20")
+        average_title = "Moyenne annuelle provisoire" if self.semester_tabs else "Moyenne provisoire"
+        provisional_text = "—" if provisional is None else f"{provisional:.2f}"
+        self.lbl_year_avg.setText(f"{average_title} : {provisional_text} / 20")
         if complete is None:
             self.lbl_complete_avg.setText("Moyenne éléments complets : — / 20")
         else:
             self.lbl_complete_avg.setText(f"Moyenne éléments complets : {complete:.2f} / 20")
 
-        total_blocks = len(self.block_widgets)
+        total_blocks = len(metrics["blocks"])
         complete_blocks = metrics["complete_blocks"]
         failing_complete = metrics["complete_blocks_below_threshold"] + (1 if metrics["alternance_grade"] is not None and metrics["alternance_grade"] < float(settings.get("validation_threshold", 10.0)) else 0)
         self.lbl_ects_info.setText(
@@ -615,7 +668,9 @@ class YearTabWidget(QWidget):
         elif failing_complete:
             self.lbl_status.setText(f"{failing_complete} élément(s) complet(s) ne satisfaisant pas les critères indicatifs")
             self.lbl_status.setStyleSheet("color: #ef4444; font-weight: 700;")
-        elif complete_blocks < total_blocks or metrics["alternance_grade"] is None:
+        elif complete_blocks < total_blocks or (
+            self.uses_annual_alternance and metrics["alternance_grade"] is None
+        ):
             self.lbl_status.setText("Évaluation provisoire · notes ou éléments manquants")
             self.lbl_status.setStyleSheet("color: #f59e0b; font-weight: 700;")
         else:
@@ -645,8 +700,10 @@ class YearTabWidget(QWidget):
         blocks_metrics = []
 
         for block in self.block_widgets:
-            block_metrics = block.get_block_metrics(target=threshold, module_minimum=module_minimum)
             ects = float(block.block_data["ects"])
+            if not ects:
+                continue
+            block_metrics = block.get_block_metrics(target=threshold, module_minimum=module_minimum)
             total_possible_ects += ects
             completion_ratio = block_metrics["completion_pct"] / 100.0
             completion_ects_equivalent += ects * completion_ratio
@@ -674,7 +731,7 @@ class YearTabWidget(QWidget):
 
         alt_ects = float(self.year_config.get("alternance_ects", 23))
         total_possible_ects += alt_ects
-        alt = BlockCardWidget.parse_grade(self.inp_alternance.text())
+        alt = BlockCardWidget.parse_grade(self.inp_alternance.text()) if alt_ects else None
         if alt is not None:
             completion_ects_equivalent += alt_ects
             provisional_weighted_sum += alt * alt_ects
@@ -726,5 +783,7 @@ class YearTabWidget(QWidget):
         self.inp_toeic.setText(str(data.get("toeic", "")))
         block_data = data.get("blocks", {})
         for block in self.block_widgets:
-            block.import_data(block_data.get(block.block_data["name"], {}))
+            name = block.block_data["name"]
+            legacy_name = block.block_data.get("legacy_name")
+            block.import_data(block_data.get(name, block_data.get(legacy_name, {})))
         self.update_year_summary()

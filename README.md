@@ -57,19 +57,28 @@ La maquette fournie dans l'application est répartie ainsi :
 | --- | --- |
 | Année 1 (IPSI 1) | Fondamentaux pour l'ingénieur, Image, Optique, Smart Industries, Vision, Projet IPSI et Environnement Professionnel |
 | Année 2 (IPSI 2) | Bloc Optique, Bloc Image, Bloc Vision, Bloc Fondamentaux, Bloc Smart Industries et Bloc Projet IPSI |
-| Année 3 (IPSI 3) | Systèmes Photoniques, Smart Système d'imagerie et Projets Innovation |
+| Année 3 (IPSI 3) | Semestres 9 et 10, chacun avec Système Photonique, Smart système d'imagerie, Projets Innovation et Apprentissage |
 
 Chaque bloc contient les modules, leurs poids respectifs et une valeur d'ECTS.
-L'alternance dispose également d'une valeur d'ECTS par année. Ces données sont
-définies dans `app_data.py` et servent aux calculs de l'application.
+En IPSI 3, les onglets **Semestre 1 · S9** et **Semestre 2 · S10** séparent la
+saisie. Le dashboard regroupe les deux semestres. Chaque semestre totalise
+30 ECTS, dont 15 pour son bloc Apprentissage. Les éléments à validation
+séparée figurent dans le suivi, hors moyennes et ECTS. Les données sont définies
+dans `app_data.py`.
+
+Pour le bloc Apprentissage du S10, le PDF indique 90 % pour la soutenance et
+100 % pour le projet professionnel. L'application conserve ces coefficients
+et calcule la moyenne pondérée en divisant par leur somme, 190. Les anciennes
+notes des modules d'IPSI 3 sont reprises dans le S10. L'ancienne note globale
+d'alternance reste consultable hors moyenne.
 
 ## Calculs et interprétation
 
 - Une note de module est comprise entre **0 et 20**. Les poids des modules
   déterminent la moyenne pondérée de leur bloc.
 - La **moyenne provisoire d'un bloc** utilise les notes déjà saisies. La
-  **moyenne complète** n'est affichée que lorsque toutes les notes du bloc sont
-  renseignées.
+  **moyenne complète** n'est affichée que lorsque toutes les notes pondérées
+  du bloc sont renseignées.
 - La **moyenne provisoire annuelle** estime la contribution des blocs au
   prorata de leur couverture de notes et de leurs ECTS. La moyenne des
   **éléments complets** ne prend en compte que les blocs entièrement notés et
@@ -88,7 +97,7 @@ Ces indicateurs sont des aides au suivi personnel. Ils ne constituent ni une
 validation académique, ni un relevé officiel, ni une décision de jury.
 
 > **À vérifier :** la maquette actuellement incluse totalise 81 ECTS en année 1,
-> 60 ECTS en année 2 et 30 ECTS en année 3, alternance comprise. L'application
+> 60 ECTS en année 2 et 60 ECTS en année 3, alternance comprise. L'application
 > signale les années dont le total configuré diffère de 60 ECTS, mais ne corrige
 > pas les valeurs. Vérifiez les blocs et les ECTS avec la maquette officielle
 > correspondant à votre promotion avant d'interpréter les résultats.

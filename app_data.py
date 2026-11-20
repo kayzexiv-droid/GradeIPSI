@@ -149,7 +149,56 @@ CURRICULUM_DATA = {
     "Année 3 (IPSI 3)": {
         "blocks": [
             {
-                "name": "Systèmes Photoniques",
+                "name": "Système Photonique (S9)",
+                "semester": 9,
+                "ects": 7,
+                "modules": [
+                    {"name": "Conception assistée par ordinateur", "weight": 21},
+                    {"name": "Caractérisation et mesures", "weight": 27},
+                    {"name": "Optique guidée", "weight": 32},
+                    {"name": "Optique expérimentale (S9)", "weight": 20},
+                ],
+            },
+            {
+                "name": "Smart système d'imagerie (S9)",
+                "semester": 9,
+                "ects": 6,
+                "modules": [
+                    {"name": "Traitement d'image couleur", "weight": 25},
+                    {"name": "Texture", "weight": 21},
+                    {"name": "Projet vision C#", "weight": 54},
+                ],
+            },
+            {
+                "name": "Projets Innovation (S9)",
+                "semester": 9,
+                "ects": 2,
+                "modules": [
+                    {"name": "Projet innovation : finalisation", "weight": 70},
+                    {"name": "Valorisation d'un projet de transition", "weight": 30},
+                ],
+            },
+            {
+                "name": "Apprentissage (S9)",
+                "semester": 9,
+                "ects": 15,
+                "modules": [
+                    {"name": "Apprentissage en entreprise - Semestre 9", "weight": None, "status_only": True},
+                    {"name": "Bilan des compétences", "weight": 100},
+                ],
+            },
+            {
+                "name": "Compétence linguistique (S9)",
+                "semester": 9,
+                "ects": 0,
+                "modules": [
+                    {"name": "Niveau en langue anglaise (S9)", "weight": None},
+                ],
+            },
+            {
+                "name": "Système Photonique (S10)",
+                "legacy_name": "Systèmes Photoniques",
+                "semester": 10,
                 "ects": 4,
                 "modules": [
                     {"name": "Optique de Fourier", "weight": 31},
@@ -157,7 +206,9 @@ CURRICULUM_DATA = {
                 ]
             },
             {
-                "name": "Smart Système d'imagerie",
+                "name": "Smart système d'imagerie (S10)",
+                "legacy_name": "Smart Système d'imagerie",
+                "semester": 10,
                 "ects": 7,
                 "modules": [
                     {"name": "Imagerie non conventionnelle", "weight": 13},
@@ -168,16 +219,44 @@ CURRICULUM_DATA = {
                 ]
             },
             {
-                "name": "Projets Innovation",
+                "name": "Projets Innovation (S10)",
+                "legacy_name": "Projets Innovation",
+                "semester": 10,
                 "ects": 4,
                 "modules": [
                     {"name": "Recherche et innovation", "weight": 27},
                     {"name": "Gestion financière", "weight": 21},
                     {"name": "Projet Innovation : recette", "weight": 52}
                 ]
-            }
+            },
+            {
+                "name": "Apprentissage (S10)",
+                "semester": 10,
+                "ects": 15,
+                "modules": [
+                    {"name": "Apprentissage en entreprise - Semestre 10", "weight": None, "status_only": True},
+                    {"name": "Soutenance de l'année 3", "weight": 90},
+                    {"name": "Self marketing et projet professionnel", "weight": 100},
+                ],
+            },
+            {
+                "name": "Compétence linguistique (S10)",
+                "semester": 10,
+                "ects": 0,
+                "modules": [
+                    {"name": "Niveau en langue anglaise (S10)", "weight": None},
+                ],
+            },
+            {
+                "name": "Validation du diplôme (S10)",
+                "semester": 10,
+                "ects": 0,
+                "modules": [
+                    {"name": "Niveau d'anglais et compétences internationales", "weight": None, "status_only": True},
+                ],
+            },
         ],
-        "alternance_ects": 15
+        "alternance_ects": 0
     }
 }
 
@@ -307,6 +386,7 @@ def make_stylesheet(settings):
         QMenu::item {{ padding: 7px 24px; border-radius: 4px; }}
         QStatusBar {{ background: {surface}; color: {muted}; border-top: 1px solid {border}; }}
         QTabWidget::pane {{ border: 1px solid {border}; background: {bg}; border-radius: 9px; top: -1px; }}
+        QTabWidget#SemesterTabs::pane {{ border: none; border-top: 1px solid {border}; border-radius: 0; }}
         QTabBar::tab {{ background: {surface2}; color: {muted}; padding: 8px 13px; margin-right: 3px; border-top-left-radius: 7px; border-top-right-radius: 7px; font-weight: 600; }}
         QTabBar::tab:selected {{ background: {accent}; color: white; }}
         QTabBar::tab:hover:!selected {{ background: {hover}; color: {text}; }}
@@ -323,6 +403,9 @@ def make_stylesheet(settings):
         QToolButton#BlockToggle {{ background: transparent; border: 1px solid {border}; border-radius: 6px; padding: 5px 8px; }}
         QFrame#Separator {{ background: {border}; max-height: 1px; }}
         QScrollArea {{ border: none; background: transparent; }}
+        QWidget#ModuleList, QWidget#YearRecapContent {{ background: {bg}; }}
+        QTableWidget#YearModuleTable {{ background: {surface}; alternate-background-color: {field}; border: 1px solid {border}; gridline-color: {border}; }}
+        QTableWidget#YearModuleTable QHeaderView::section {{ background: {surface2}; color: {text}; border: none; padding: 6px 8px; font-weight: 600; }}
         QProgressBar {{ border: none; background: {surface2}; border-radius: 5px; height: 9px; text-align: center; }}
         QProgressBar::chunk {{ background: {accent}; border-radius: 5px; }}
         QSpinBox {{ background: {field}; border: 1px solid {border}; border-radius: 6px; padding: 5px; }}

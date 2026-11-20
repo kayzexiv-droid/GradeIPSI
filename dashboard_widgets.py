@@ -168,6 +168,7 @@ class YearRecapWidget(QWidget):
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         content_widget = QWidget()
+        content_widget.setObjectName("YearRecapContent")
         layout = QVBoxLayout(content_widget)
         layout.setContentsMargins(14, 14, 14, 14)
         layout.setSpacing(12)
@@ -233,7 +234,7 @@ class YearRecapWidget(QWidget):
         radar_layout.addWidget(legend)
         self.block_bars = YearBlockBarsWidget()
         radar_layout.addWidget(self.block_bars, 1)
-        content.addWidget(radar_card, 3)
+        content.addWidget(radar_card, 2)
 
         breakdown_card = QFrame()
         breakdown_card.setObjectName("Card")
@@ -253,18 +254,20 @@ class YearRecapWidget(QWidget):
         self.module_table_count.setProperty("class", "Muted")
         breakdown_layout.addWidget(self.module_table_count)
         self.module_table = QTableWidget(0, 4)
+        self.module_table.setObjectName("YearModuleTable")
         self.module_table.setHorizontalHeaderLabels(["Module", "Bloc", "État", "Note /20"])
         self.module_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.module_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.module_table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.module_table.setAlternatingRowColors(True)
         self.module_table.verticalHeader().setVisible(False)
+        self.module_table.verticalHeader().setMinimumSectionSize(32)
         self.module_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.module_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.module_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.module_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
         breakdown_layout.addWidget(self.module_table, 1)
-        content.addWidget(breakdown_card, 2)
+        content.addWidget(breakdown_card, 3)
         layout.addLayout(content, 1)
         self.scroll.setWidget(content_widget)
         page_layout.addWidget(self.scroll)
@@ -319,9 +322,15 @@ class YearRecapWidget(QWidget):
                                              "aucun bloc complet" if complete_average is None else "éléments complètement renseignés uniquement")
         self.kpi_completion.set_values(
             f"{metrics['completion_pct']:.0f} %",
-            f"{metrics['blocks_with_any_grade']}/{len(tab.block_widgets)} blocs avec notes"
+            f"{metrics['blocks_with_any_grade']}/{len(metrics['blocks'])} blocs pondérés avec notes"
         )
-        self.kpi_ects.set_values(f"{metrics['ects_evaluated']:.0f}", "ECTS de blocs complets + alternance notée")
+        ects_detail = (
+            "ECTS de blocs complets + alternance notée"
+            if tab.uses_annual_alternance else "ECTS des blocs complets des deux semestres"
+        )
+        self.kpi_ects.set_values(f"{metrics['ects_evaluated']:.0f}", ects_detail)
+        self.kpi_ects.setToolTip(ects_detail)
+        self.kpi_complete_average.setToolTip(tab.lbl_complete_avg.toolTip())
         self.kpi_acquired.set_values(f"{metrics['ects_acquired_estimated']:.0f}",
                                      f"seuil indicatif : {float(self.settings_provider().get('validation_threshold', 10.0)):g}/20")
         toeic_target = int(self.settings_provider().get("toeic_target", 785))
@@ -407,9 +416,10 @@ class YearRecapWidget(QWidget):
                     else:
                         table_item.setForeground(QColor("#10b981"))
                 self.module_table.setItem(row_index, column, table_item)
-        self.module_table_count.setText(
-            f"{len(rows)} modules · année {tab.year_name}" if tab is not None else "Aucun module"
-        )
+        count_text = f"{len(rows)} modules"
+        if tab is not None and tab.semester_tabs is not None:
+            count_text += " · Semestres 9 et 10"
+        self.module_table_count.setText(count_text)
         self.module_table.resizeRowsToContents()
 
 class YearComparisonChartWidget(QWidget):
@@ -965,7 +975,9 @@ class GradeSimulationWidget(QWidget):
         self.block_selector.blockSignals(True)
         self.block_selector.clear()
         if tab is not None:
-            self.block_selector.addItems([block.block_data["name"] for block in tab.block_widgets])
+            self.block_selector.addItems([
+                block.block_data["name"] for block in tab.block_widgets if block.block_data["ects"]
+            ])
         self.block_selector.blockSignals(False)
         self._load_block()
 
@@ -981,9 +993,10 @@ class GradeSimulationWidget(QWidget):
             self.update_simulation()
             return
 
-        self.grade_table.setRowCount(len(self.selected_block.inputs))
+        weighted_modules = list(self.selected_block.weighted_modules())
+        self.grade_table.setRowCount(len(weighted_modules))
         self.scenario_input_order = []
-        for row, (module_name, item) in enumerate(self.selected_block.inputs.items()):
+        for row, (module_name, item) in enumerate(weighted_modules):
             self.grade_table.setItem(row, 0, QTableWidgetItem(module_name))
             self.grade_table.setItem(row, 1, QTableWidgetItem(f"{item['weight']:g} %"))
             self.grade_table.setItem(row, 2, QTableWidgetItem(item["status"].currentText()))
@@ -1017,7 +1030,7 @@ class GradeSimulationWidget(QWidget):
         if self.selected_block is None:
             self._load_blocks()
             return
-        for row, (module_name, item) in enumerate(self.selected_block.inputs.items()):
+        for row, (_, item) in enumerate(self.selected_block.weighted_modules()):
             self.grade_table.setItem(row, 2, QTableWidgetItem(item["status"].currentText()))
             grade = BlockCardWidget.parse_grade(item["input"].text())
             actual_item = QTableWidgetItem("—" if grade is None else f"{grade:g}")

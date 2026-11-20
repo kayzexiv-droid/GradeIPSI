@@ -523,7 +523,9 @@ class GradeTrackerApp(QMainWindow):
                         block_metrics = block.get_block_metrics(target=threshold, module_minimum=module_minimum)
                         block_avg = block_metrics["provisional_average"]
                         block_avg_text = "" if block_avg is None else f"{block_avg:.2f}"
-                        if block_metrics["complete_average"] is None:
+                        if not block.block_data["ects"]:
+                            block_status = "Validation séparée"
+                        elif block_metrics["complete_average"] is None:
                             block_status = "Incomplet"
                         elif block_metrics["validation_pass"]:
                             block_status = "Critères indicatifs atteints"
@@ -542,7 +544,10 @@ class GradeTrackerApp(QMainWindow):
                                 "Note /20": item["input"].text().strip(),
                                 "État du module": item["status"].currentText(),
                                 "Moyenne provisoire du bloc /20": block_avg_text,
-                                "Bloc complet": "Oui" if block_metrics["complete_average"] is not None else "Non",
+                                "Bloc complet": (
+                                    ("Oui" if block_metrics["complete_average"] is not None else "Non")
+                                    if block.block_data["ects"] else ""
+                                ),
                                 "Diagnostic indicatif du bloc": block_status,
                             })
                             writer.writerow(row)
@@ -553,6 +558,9 @@ class GradeTrackerApp(QMainWindow):
                             "Module": "Alternance / TOEIC",
                             "Diagnostic indicatif du bloc": "Alternance : seuil atteint (est.)" if year_metrics["alternance_grade"] is not None and year_metrics["alternance_grade"] >= threshold else ("Alternance : sous le seuil (est.)" if year_metrics["alternance_grade"] is not None else "Alternance non évaluée"),
                         })
+                        if not tab.uses_annual_alternance:
+                            row["Module"] = "TOEIC / ancienne note d'alternance"
+                            row["Diagnostic indicatif du bloc"] = ""
                         writer.writerow(row)
             self.statusBar().showMessage(f"Export CSV terminé : {path}", 5000)
             QMessageBox.information(self, "Export CSV", "Les notes, états des modules, complétudes, moyennes provisoires, moyennes des éléments complets et ECTS estimés ont été exportés.")
