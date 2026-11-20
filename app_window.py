@@ -10,7 +10,11 @@ from PySide6.QtCore import QTimer, QEvent, QUrl, Qt
 
 from PySide6.QtGui import QAction, QActionGroup, QFont, QKeySequence, QIcon, QDesktopServices
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QFrame, QMessageBox, QFileDialog, QComboBox, QDialog, QProgressBar, QProgressDialog, QStatusBar
+from PySide6.QtWidgets import (
+    QApplication, QButtonGroup, QComboBox, QDialog, QFileDialog, QFrame,
+    QHBoxLayout, QLabel, QMainWindow, QMessageBox, QProgressBar, QProgressDialog,
+    QStackedWidget, QStatusBar, QVBoxLayout, QWidget,
+)
 
 from app_data import APP_ICON_PATH, CURRICULUM_DATA, DEFAULT_SETTINGS, DISPLAY_RESOLUTIONS, SAVE_FILE, make_stylesheet
 
@@ -19,8 +23,10 @@ from dashboard_widgets import GradeSimulationWidget, YearRecapWidget
 from grade_widgets import YearTabWidget
 
 from settings_dialog import SettingsDialog
+from ui_icons import IconButton
 from update_checker import ReleaseChecker, load_current_version
 from update_installer import InstallerDownload, is_inno_installation
+from window_titlebar import WindowTitleBar
 
 
 PROJECT_URL = "https://github.com/kayzexiv-droid/GradeIPSI"
@@ -30,6 +36,7 @@ class GradeTrackerApp(QMainWindow):
     """Application principale de suivi des notes, exports, préférences et historique."""
     def __init__(self, update_error=""):
         super().__init__()
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle("Suivi de scolarité ingénieur · IPSI")
         self.setWindowIcon(QIcon(APP_ICON_PATH))
         screen = QApplication.primaryScreen()
@@ -153,6 +160,8 @@ class GradeTrackerApp(QMainWindow):
 
     def init_ui(self):
         self.setStyleSheet(make_stylesheet(self.settings))
+        self.title_bar = WindowTitleBar(self)
+        self.setMenuBar(self.title_bar)
         self._create_actions()
         self._create_menus()
 
@@ -202,22 +211,50 @@ class GradeTrackerApp(QMainWindow):
         header_layout.addWidget(self.year_selector)
         main_layout.addWidget(header)
 
+        self.modules_stack = QStackedWidget()
         for year_name, config in CURRICULUM_DATA.items():
             tab = YearTabWidget(year_name, config, self.on_data_changed, lambda: self.settings)
             self.year_tabs[year_name] = tab
+            self.modules_stack.addWidget(tab)
+        self.modules_stack.setCurrentWidget(self.year_tabs[selected_year])
 
-        self._displayed_year = selected_year
-        self.tabs = QTabWidget()
+        self.pages = QStackedWidget()
         self.recap_tab = YearRecapWidget(self.year_tabs, lambda: self.settings)
-        self.tabs.addTab(self.recap_tab, "Dashboard")
-        self.tabs.addTab(self.year_tabs[selected_year], f"Modules · {selected_year}")
         self.simulation_tab = GradeSimulationWidget(self.year_tabs, lambda: self.settings)
-        self.tabs.addTab(self.simulation_tab, "Simulateur")
-        self.tabs.setCurrentIndex(0)
-        main_layout.addWidget(self.tabs, 1)
+        body = QHBoxLayout()
+        body.setSpacing(12)
+        body.addWidget(self._create_sidebar(), 0, Qt.AlignmentFlag.AlignTop)
+        body.addWidget(self.pages, 1)
+        main_layout.addLayout(body, 1)
         self.setStatusBar(QStatusBar())
         self.statusBar().showMessage("Prêt · Les notes sont sauvegardées automatiquement dans le JSON.")
         self.apply_settings(self.settings, refresh_history=False)
+        self.year_selector.setFocus()
+
+    def _create_sidebar(self):
+        sidebar = QWidget()
+        sidebar.setObjectName("Sidebar")
+        sidebar.setAccessibleName("Navigation principale")
+        layout = QVBoxLayout(sidebar)
+        layout.setContentsMargins(0, 7, 0, 0)
+        layout.setSpacing(9)
+        navigation = QButtonGroup(sidebar)
+        for label, filename, page in (
+            ("Dashboard", "home.png", self.recap_tab),
+            ("Modules", "apps.png", self.modules_stack),
+            ("Simulateur", "stats.png", self.simulation_tab),
+        ):
+            index = self.pages.addWidget(page)
+            button = IconButton(filename, label, 23)
+            button.setObjectName("SidebarLink")
+            button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            button.setCheckable(True)
+            button.setChecked(index == self.pages.currentIndex())
+            navigation.addButton(button, index)
+            layout.addWidget(button)
+        navigation.idClicked.connect(self.pages.setCurrentIndex)
+        self.action_show_navigation.toggled.connect(sidebar.setVisible)
+        return sidebar
 
     def _create_actions(self):
         self.action_save = QAction("💾 Enregistrer JSON", self)
@@ -257,6 +294,10 @@ class GradeTrackerApp(QMainWindow):
         self.action_fullscreen.setCheckable(True)
         self.action_fullscreen.toggled.connect(self._set_fullscreen)
 
+        self.action_show_navigation = QAction("Volet de navigation", self)
+        self.action_show_navigation.setCheckable(True)
+        self.action_show_navigation.setChecked(True)
+
     def _create_menus(self):
         file_menu = self.menuBar().addMenu("Fichier")
         file_menu.addAction(self.action_save)
@@ -282,6 +323,7 @@ class GradeTrackerApp(QMainWindow):
             action.triggered.connect(lambda checked=False, m=mode: self.set_view_mode(m))
             self.view_modes_menu.addAction(action)
         view_menu.addSeparator()
+        view_menu.addAction(self.action_show_navigation)
         view_menu.addAction(self.action_fullscreen)
 
         settings_menu = self.menuBar().addMenu("Préférences")
@@ -304,18 +346,7 @@ class GradeTrackerApp(QMainWindow):
             self.save_data_quietly()
 
     def _show_year_tab(self, year_name):
-        current_widget = self.tabs.currentWidget()
-        previous_tab = self.year_tabs.get(self._displayed_year)
-        previous_index = self.tabs.indexOf(previous_tab) if previous_tab is not None else -1
-        if previous_index >= 0:
-            self.tabs.removeTab(previous_index)
-        self._displayed_year = year_name
-        selected_tab = self.year_tabs[year_name]
-        self.tabs.insertTab(1, selected_tab, f"Modules · {year_name}")
-        if current_widget is previous_tab:
-            self.tabs.setCurrentWidget(selected_tab)
-        elif current_widget is not None:
-            self.tabs.setCurrentWidget(current_widget)
+        self.modules_stack.setCurrentWidget(self.year_tabs[year_name])
         self.recap_tab.refresh()
         self.simulation_tab.refresh_for_year()
 
@@ -340,8 +371,11 @@ class GradeTrackerApp(QMainWindow):
 
     def changeEvent(self, event):
         super().changeEvent(event)
-        if event.type() == QEvent.Type.WindowStateChange and hasattr(self, "action_fullscreen"):
-            self.action_fullscreen.setChecked(self.isFullScreen())
+        if event.type() == QEvent.Type.WindowStateChange:
+            if hasattr(self, "action_fullscreen"):
+                self.action_fullscreen.setChecked(self.isFullScreen())
+            if hasattr(self, "title_bar"):
+                self.title_bar.sync_window_state()
 
     def on_data_changed(self):
         if self._restoring:
@@ -580,6 +614,8 @@ class GradeTrackerApp(QMainWindow):
         self.settings.update(settings)
         self._apply_display_resolution()
         self.setStyleSheet(make_stylesheet(self.settings))
+        for button in self.findChildren(IconButton):
+            button.refresh_icon()
         app = QApplication.instance()
         if app is not None:
             scaled_font_size = max(
@@ -608,6 +644,7 @@ class GradeTrackerApp(QMainWindow):
                     block.update_module_status_style(
                         item["status"], item["status"].currentText()
                     )
+                block.recalculate()
             tab.set_view_mode(mode)
             tab.update_year_summary()
         selected_year = self.settings.get("dashboard_year", next(iter(self.year_tabs), ""))
@@ -617,7 +654,7 @@ class GradeTrackerApp(QMainWindow):
         self.year_selector.blockSignals(True)
         self.year_selector.setCurrentText(selected_year)
         self.year_selector.blockSignals(False)
-        if selected_year != self._displayed_year:
+        if self.modules_stack.currentWidget() is not self.year_tabs[selected_year]:
             self._show_year_tab(selected_year)
         elif hasattr(self, "recap_tab"):
             self.recap_tab.refresh()

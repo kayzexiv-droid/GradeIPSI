@@ -137,8 +137,10 @@ son interpréteur :
 ### Suivre une année
 
 1. Choisissez l'année à l'aide du sélecteur en haut de la fenêtre. Elle est
-   partagée entre le tableau de bord, l'onglet des modules et le simulateur.
-2. Dans l'onglet **Modules**, développez un bloc et saisissez les notes
+   partagée entre **Dashboard**, **Modules** et **Simulateur**. Ces vues sont
+   accessibles depuis les icônes à gauche. Le menu **Affichage → Volet de
+   navigation** permet de masquer ou d'afficher ces icônes.
+2. Dans **Modules**, développez un bloc et saisissez les notes
    disponibles. Les notes acceptées vont de 0 à 20.
 3. Mettez à jour le statut de chaque module : **Pas commencé**, **En cours** ou
    **Terminé**. Le statut est indépendant de la saisie de la note.
@@ -147,13 +149,13 @@ son interpréteur :
 5. Consultez le **Dashboard** pour retrouver les moyennes, la complétude, les
    ECTS estimés, le graphique par bloc et le détail triable des modules.
 
-La barre de recherche de l'onglet Modules filtre les noms de modules. Le menu
+La barre de recherche de la vue Modules filtre les noms de modules. Le menu
 de filtre permet d'afficher tous les états, un état particulier ou les modules
 sans note.
 
 ### Simuler un objectif
 
-Dans l'onglet **Simulateur**, choisissez un bloc et modifiez les notes du
+Dans **Simulateur**, choisissez un bloc et modifiez les notes du
 scénario. Les indicateurs présentent notamment la moyenne réelle provisoire,
 la moyenne simulée, la moyenne nécessaire pour atteindre l'objectif du bloc
 et une projection annuelle. Le bouton de réinitialisation recharge les notes

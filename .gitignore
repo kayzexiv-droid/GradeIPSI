@@ -14,7 +14,6 @@ notes_data.json
 PyPrint.ico
 installexe.bat
 setup.iss
-GradeIPSI.spec
 
 # Build and test artifacts
 build/

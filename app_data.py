@@ -372,6 +372,8 @@ def make_stylesheet(settings):
         bg, surface, surface2 = "#f1f5f9", "#ffffff", "#e7edf5"
         border, text, muted, field = "#cbd5e1", "#0f172a", "#475569", "#ffffff"
         hover = "#e2e8f0"
+    module_surface = "#101a2b" if dark else "#f8fafc"
+    close_hover = "#7f1d1d" if dark else "#fee2e2"
     stylesheet = f"""
         QMainWindow, QDialog {{ background-color: {bg}; }}
         QWidget {{ color: {text}; font-family: '{font_family}'; font-size: {font_size}px; }}
@@ -380,8 +382,15 @@ def make_stylesheet(settings):
         QToolBar QToolButton:hover {{ background: {hover}; border-color: {accent}; }}
         QToolBar::separator {{ background: {border}; width: 1px; margin: 4px 5px; }}
         QMenuBar {{ background: {surface}; color: {text}; border-bottom: 1px solid {border}; }}
-        QMenuBar::item {{ padding: 5px 9px; border-radius: 5px; }}
+        QMenuBar::item {{ padding: 8px 10px; border-radius: 5px; }}
         QMenuBar::item:selected, QMenu::item:selected {{ background: {accent}; color: white; }}
+        QToolButton#WindowControlButton, QToolButton#WindowCloseButton {{
+            background: transparent; color: {text}; border: 1px solid transparent;
+            min-width: 40px; min-height: 34px;
+        }}
+        QToolButton#WindowControlButton:hover, QToolButton#WindowControlButton:checked {{ background: {hover}; }}
+        QToolButton#WindowCloseButton:hover {{ background: {close_hover}; }}
+        QToolButton#WindowControlButton:focus, QToolButton#WindowCloseButton:focus {{ border-color: {muted}; }}
         QMenu {{ background: {surface}; color: {text}; border: 1px solid {border}; padding: 5px; }}
         QMenu::item {{ padding: 7px 24px; border-radius: 4px; }}
         QStatusBar {{ background: {surface}; color: {muted}; border-top: 1px solid {border}; }}
@@ -396,10 +405,24 @@ def make_stylesheet(settings):
         QLabel.Muted {{ color: {muted}; }}
         QLineEdit {{ background: {field}; border: 1px solid {border}; border-radius: 7px; color: {text}; padding: 7px 9px; selection-background-color: {accent}; }}
         QLineEdit:focus {{ border: 2px solid {accent}; }}
+        QFrame#ModuleRow {{ background: {module_surface}; border: 1px solid {border}; border-radius: 9px; }}
+        QLabel#ModuleName {{ font-size: {font_size + 2}px; font-weight: 700; }}
+        QLabel#ModuleWeight {{ background: {surface2}; color: {muted}; border-radius: 6px; padding: 4px 7px; font-weight: 600; }}
+        QLabel#ModuleFieldLabel {{ color: {muted}; font-weight: 600; }}
+        QLabel#ModuleTarget {{ color: {text}; font-weight: 700; }}
+        QLineEdit#ModuleGrade {{ font-size: {font_size + 2}px; font-weight: 700; }}
+        QLineEdit#ModuleGrade:disabled {{ background: {surface2}; color: {muted}; }}
         QComboBox {{ background: {surface2}; border: 1px solid {border}; border-radius: 7px; padding: 7px 9px; min-width: 120px; }}
         QComboBox QAbstractItemView {{ background: {surface}; selection-background-color: {accent}; }}
         QPushButton {{ background: {surface2}; border: 1px solid {border}; border-radius: 7px; padding: 8px 13px; }}
         QPushButton:hover {{ border-color: {accent}; background: {hover}; }}
+        QToolButton#SidebarLink {{
+            background: transparent; color: {text}; border: 1px solid transparent;
+            border-radius: 10px; min-width: 43px; min-height: 43px;
+        }}
+        QToolButton#SidebarLink:hover {{ background: {hover}; }}
+        QToolButton#SidebarLink:checked {{ background: {surface2}; border-color: {accent}; }}
+        QToolButton#SidebarLink:focus {{ border: 1px dashed {muted}; }}
         QToolButton#BlockToggle {{ background: transparent; border: 1px solid {border}; border-radius: 6px; padding: 5px 8px; }}
         QFrame#Separator {{ background: {border}; max-height: 1px; }}
         QScrollArea {{ border: none; background: transparent; }}
