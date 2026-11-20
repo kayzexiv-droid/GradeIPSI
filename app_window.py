@@ -6,11 +6,11 @@ import csv
 
 from copy import deepcopy
 
-from PySide6.QtCore import QTimer, QEvent, QUrl
+from PySide6.QtCore import QTimer, QEvent, QUrl, Qt
 
 from PySide6.QtGui import QAction, QActionGroup, QFont, QKeySequence, QIcon, QDesktopServices
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QFrame, QMessageBox, QFileDialog, QComboBox, QDialog, QStatusBar
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QFrame, QMessageBox, QFileDialog, QComboBox, QDialog, QProgressBar, QProgressDialog, QStatusBar
 
 from app_data import APP_ICON_PATH, CURRICULUM_DATA, DEFAULT_SETTINGS, DISPLAY_RESOLUTIONS, SAVE_FILE, make_stylesheet
 
@@ -20,6 +20,7 @@ from grade_widgets import YearTabWidget
 
 from settings_dialog import SettingsDialog
 from update_checker import ReleaseChecker, load_current_version
+from update_installer import InstallerDownload, is_inno_installation
 
 
 PROJECT_URL = "https://github.com/kayzexiv-droid/GradeIPSI"
@@ -27,7 +28,7 @@ PROJECT_URL = "https://github.com/kayzexiv-droid/GradeIPSI"
 
 class GradeTrackerApp(QMainWindow):
     """Application principale de suivi des notes, exports, préférences et historique."""
-    def __init__(self):
+    def __init__(self, update_error=""):
         super().__init__()
         self.setWindowTitle("Suivi de scolarité ingénieur · IPSI")
         self.setWindowIcon(QIcon(APP_ICON_PATH))
@@ -61,23 +62,88 @@ class GradeTrackerApp(QMainWindow):
         self.release_checker.release_available.connect(self._show_release_available)
         self.release_checker.up_to_date.connect(self._show_up_to_date)
         self.release_checker.check_failed.connect(self._show_release_check_error)
-        QTimer.singleShot(0, self.release_checker.check)
+        if not update_error:
+            QTimer.singleShot(0, self.release_checker.check)
+        else:
+            QTimer.singleShot(0, lambda: self._show_install_error(update_error))
 
-    def _show_release_available(self, tag, name, url):
+    def _show_release_available(self, tag, name, installer):
+        if not is_inno_installation():
+            self.statusBar().showMessage(
+                f"Version {tag} disponible. L'installation intégrée nécessite la version Windows installée.", 10000
+            )
+            return
+        if installer is None:
+            self.statusBar().showMessage(
+                f"Version {tag} disponible. Aucun installateur Windows vérifiable dans cette release.", 10000
+            )
+            return
+
         message = QMessageBox(self)
         message.setWindowTitle("Mise à jour disponible")
         message.setIcon(QMessageBox.Icon.Information)
+        message.setTextFormat(Qt.TextFormat.PlainText)
         message.setText(f"La version {tag} est disponible.")
-        message.setInformativeText(name)
-        open_release = message.addButton(
-            "Voir la release", QMessageBox.ButtonRole.AcceptRole
+        message.setInformativeText(f"{name}\n\nGradeIPSI se fermera et se relancera après l'installation.")
+        install_button = message.addButton(
+            "Installer et redémarrer", QMessageBox.ButtonRole.AcceptRole
         )
-        message.addButton("Plus tard", QMessageBox.ButtonRole.RejectRole)
+        later_button = message.addButton("Plus tard", QMessageBox.ButtonRole.RejectRole)
+        message.setDefaultButton(later_button)
         message.exec()
-        if message.clickedButton() == open_release and not QDesktopServices.openUrl(QUrl(url)):
-            self.statusBar().showMessage(
-                "Impossible d'ouvrir la page de la release.", 6000
+        if message.clickedButton() == install_button:
+            self._download_update(tag, installer)
+
+    def _download_update(self, tag, installer):
+        download = InstallerDownload(installer, self)
+        progress = QProgressDialog(
+            f"Téléchargement de la version {tag}…", "Annuler", 0, 100, self
+        )
+        progress.setWindowTitle("Mise à jour de GradeIPSI")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setAutoClose(False)
+        progress.setAutoReset(False)
+        bar = QProgressBar(progress)
+        bar.setValue(0)
+        progress.setBar(bar)
+        progress.canceled.connect(download.cancel)
+        download.progress.connect(bar.setValue)
+        download.finished.connect(lambda: self._finish_update(download, progress))
+        self.action_check_updates.setEnabled(False)
+        progress.show()
+        download.start()
+
+    def _finish_update(self, download, progress):
+        progress.hide()
+        progress.deleteLater()
+        download.deleteLater()
+        self.action_check_updates.setEnabled(True)
+        if download.cancelled:
+            return
+        if download.error:
+            QMessageBox.warning(self, "Mise à jour interrompue", download.error)
+            return
+        if not self.save_data_quietly():
+            QMessageBox.warning(
+                self, "Mise à jour interrompue",
+                "La sauvegarde des notes a échoué. Vérifie la barre d'état avant de réessayer.",
             )
+            return
+        try:
+            download.launch_installer()
+        except OSError as error:
+            QMessageBox.warning(self, "Mise à jour interrompue", str(error))
+            return
+        self.close()
+
+    def _show_install_error(self, result):
+        if result == "launch":
+            text = "L'installateur n'a pas démarré. Vérifie que l'autorisation Windows a été accordée."
+        elif result == "20":
+            text = "Windows doit redémarrer pour terminer la mise à jour."
+        else:
+            text = f"L'installation a échoué (code {result})."
+        QMessageBox.warning(self, "Mise à jour de GradeIPSI", text)
 
     def _show_up_to_date(self, version):
         self.statusBar().showMessage(f"L'application est à jour (v{version}).", 5000)
@@ -176,6 +242,9 @@ class GradeTrackerApp(QMainWindow):
         self.action_about = QAction("À propos", self)
         self.action_about.triggered.connect(self.open_project_page)
 
+        self.action_check_updates = QAction("Rechercher des mises à jour…", self)
+        self.action_check_updates.triggered.connect(lambda: self.release_checker.check())
+
         self.action_reset = QAction("Effacer toutes les notes…", self)
         self.action_reset.triggered.connect(self.reset_data)
 
@@ -217,6 +286,7 @@ class GradeTrackerApp(QMainWindow):
 
         settings_menu = self.menuBar().addMenu("Préférences")
         settings_menu.addAction(self.action_settings)
+        settings_menu.addAction(self.action_check_updates)
         self.menuBar().addAction(self.action_about)
 
     def open_project_page(self):

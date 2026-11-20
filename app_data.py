@@ -10,7 +10,7 @@ CURRICULUM_DATA = {
         "blocks": [
             {
                 "name": "Fondamentaux pour l'ingénieur",
-                "ects": 8,
+                "ects": 6,
                 "modules": [
                     {"name": "Algorithmique", "weight": 25},
                     {"name": "Signaux", "weight": 25},
@@ -20,7 +20,7 @@ CURRICULUM_DATA = {
             },
             {
                 "name": "Image",
-                "ects": 8,
+                "ects": 5,
                 "modules": [
                     {"name": "Analyse d'images", "weight": 37},
                     {"name": "DLC", "weight": 38},
@@ -29,7 +29,7 @@ CURRICULUM_DATA = {
             },
             {
                 "name": "Optique",
-                "ects": 6,
+                "ects": 8,
                 "modules": [
                     {"name": "Ondes électromagnétiques", "weight": 12},
                     {"name": "Optique géométrique", "weight": 33},
@@ -39,7 +39,7 @@ CURRICULUM_DATA = {
             },
             {
                 "name": "Smart Industries",
-                "ects": 15,
+                "ects": 3,
                 "modules": [
                     {"name": "Electronique", "weight": 30},
                     {"name": "Base de données", "weight": 20},
@@ -49,7 +49,7 @@ CURRICULUM_DATA = {
             },
             {
                 "name": "Vision",
-                "ects": 15,
+                "ects": 3,
                 "modules": [
                     {"name": "Systèmes de vision", "weight": 35},
                     {"name": "Base des systèmes asservis", "weight": 23},
@@ -59,7 +59,7 @@ CURRICULUM_DATA = {
             },
             {
                 "name": "Projet IPSI",
-                "ects": 3,
+                "ects": 2,
                 "modules": [
                     {"name": "Veille technologique", "weight": 16},
                     {"name": "Gestion de projet", "weight": 16},
@@ -69,7 +69,7 @@ CURRICULUM_DATA = {
             },
             {
                 "name": "Environnement Professionnel",
-                "ects": 3,
+                "ects": 2,
                 "modules": [
                     {"name": "Organisation des entreprises", "weight": 32},
                     {"name": "Communication", "weight": 68}

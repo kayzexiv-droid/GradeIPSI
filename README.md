@@ -42,9 +42,11 @@ L'interface est en français et s'appuie sur Python et PySide6 (Qt).
   historique Annuler/Rétablir.
 - Thème sombre ou clair, couleur d'accentuation, police, échelle de l'interface
   et résolution de la fenêtre, ainsi que plusieurs modes d'affichage.
-- Vérification de la disponibilité d'une nouvelle version publiée sur GitHub
-  au démarrage. Cette vérification ne met pas l'application à jour
-  automatiquement.
+- Vérification des nouvelles versions au démarrage et dans **Préférences →
+  Rechercher des mises à jour…**. Dans la version Windows installée, le bouton
+  **Installer et redémarrer** télécharge la mise à jour, sauvegarde les notes,
+  puis ferme et relance GradeIPSI. Windows peut demander l'autorisation
+  administrateur.
 - Accès au dépôt GitHub de l'application depuis la toolbar avec « À propos ».
 
 ## Cursus intégré
@@ -235,6 +237,13 @@ Le dossier produit est `dist\GradeIPSI`. Pour distribuer la version construite,
 conservez le dossier complet et lancez `GradeIPSI.exe` à l'intérieur : ce n'est
 pas un exécutable autonome à déplacer seul.
 
+Pour proposer une mise à jour intégrée, compilez l'installateur Inno Setup avec
+le même `AppId`, puis joignez `GradeIPSI_setup.exe` à la release GitHub. Le tag
+de la release doit correspondre à `version.txt` (par exemple `v1.2.0` pour
+`1.2.0`). GradeIPSI vérifie la taille et l'empreinte SHA-256 fournies par
+GitHub avant de lancer l'installation. La mise à jour intégrée nécessite une
+installation Windows existante créée par Inno Setup.
+
 ## Structure du projet
 
 | Fichier | Rôle |
@@ -246,6 +255,7 @@ pas un exécutable autonome à déplacer seul.
 | `dashboard_widgets.py` | Tableau de bord annuel, graphiques et simulateur |
 | `settings_dialog.py` | Dialogue des préférences |
 | `update_checker.py` | Vérification des releases GitHub |
+| `update_installer.py` | Téléchargement, vérification et installation de la mise à jour |
 | `version.txt` | Version lue par le vérificateur de mises à jour |
 | `GradeIPSI.spec` | Configuration de construction PyInstaller |
 

@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+from dataclasses import dataclass
 
 from PySide6.QtCore import QObject, QTimer, QUrl, Signal
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
@@ -14,6 +15,34 @@ RELEASE_API_URL = (
     f"https://api.github.com/repos/{GITHUB_REPOSITORY}/releases/latest"
 )
 _VERSION_PATTERN = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$", re.IGNORECASE)
+INSTALLER_NAME = "GradeIPSI_setup.exe"
+
+
+@dataclass(frozen=True)
+class ReleaseInstaller:
+    url: str
+    size: int
+    sha256: str
+
+    @classmethod
+    def from_release(cls, tag, assets):
+        if not isinstance(assets, list):
+            return None
+        url = f"https://github.com/{GITHUB_REPOSITORY}/releases/download/{tag}/{INSTALLER_NAME}"
+        for asset in assets:
+            if not isinstance(asset, dict) or asset.get("name") != INSTALLER_NAME:
+                continue
+            size = asset.get("size")
+            digest = asset.get("digest")
+            if (
+                asset.get("browser_download_url") == url
+                and type(size) is int
+                and size > 0
+                and isinstance(digest, str)
+                and re.fullmatch(r"sha256:[0-9a-fA-F]{64}", digest)
+            ):
+                return cls(url, size, digest[7:].lower())
+        return None
 
 
 def load_current_version():
@@ -44,7 +73,7 @@ def _parse_version(tag):
 
 
 class ReleaseChecker(QObject):
-    release_available = Signal(str, str, str)
+    release_available = Signal(str, str, object)
     up_to_date = Signal(str)
     check_failed = Signal(str)
 
@@ -117,10 +146,9 @@ class ReleaseChecker(QObject):
             if not isinstance(release, dict):
                 raise ValueError("Réponse GitHub invalide.")
             tag = release.get("tag_name")
-            url = release.get("html_url")
             name = release.get("name") or tag
-            if not all(isinstance(value, str) and value for value in (tag, url, name)):
-                raise ValueError("La release ne contient pas de tag ou de lien valide.")
+            if not all(isinstance(value, str) and value for value in (tag, name)):
+                raise ValueError("La release ne contient pas de tag ou de nom valide.")
             version = _parse_version(tag)
             current_version_tuple = _parse_version(current_version)
             if version is None or current_version_tuple is None:
@@ -128,9 +156,6 @@ class ReleaseChecker(QObject):
                     "Le tag de release et la version de l'application doivent être "
                     "au format vX.Y.Z."
                 )
-            release_url = QUrl(url)
-            if release_url.scheme() != "https" or release_url.host() != "github.com":
-                raise ValueError("Le lien de release GitHub n'est pas valide.")
         except (json.JSONDecodeError, TypeError, ValueError) as error:
             self.check_failed.emit(f"Réponse GitHub invalide : {error}")
             reply.deleteLater()
@@ -138,6 +163,7 @@ class ReleaseChecker(QObject):
 
         reply.deleteLater()
         if version > current_version_tuple:
-            self.release_available.emit(tag, name, url)
+            installer = ReleaseInstaller.from_release(tag, release.get("assets"))
+            self.release_available.emit(tag, name, installer)
         else:
             self.up_to_date.emit(current_version)
