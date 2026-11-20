@@ -330,6 +330,7 @@ class GradeTrackerApp(QMainWindow):
         settings_menu.addAction(self.action_settings)
         settings_menu.addAction(self.action_check_updates)
         self.menuBar().addAction(self.action_about)
+        self._menus = (file_menu, edit_menu, view_menu, settings_menu)
 
     def open_project_page(self):
         if not QDesktopServices.openUrl(QUrl(PROJECT_URL)):

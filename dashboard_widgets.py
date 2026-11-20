@@ -146,6 +146,9 @@ class YearBlockBarsWidget(QWidget):
                 score_width = available_width * max(0.0, min(20.0, float(average))) / 20.0
                 painter.setBrush(QBrush(self.accent))
                 painter.drawRoundedRect(QRectF(left, bar_top, score_width, 10), 5, 5)
+            painter.setPen(QPen(self.text_color, 1))
+            painter.drawLine(QPointF(left + available_width / 2, bar_top - 2),
+                             QPointF(left + available_width / 2, bar_top + 12))
 
             coverage_top = bar_top + 13
             painter.setBrush(QBrush(self.track_color))
@@ -198,6 +201,9 @@ class YearRecapWidget(QWidget):
         self.kpi_toeic = KpiTile("TOEIC", "—", "objectif configurable")
         recap_tiles = (self.kpi_average, self.kpi_complete_average, self.kpi_completion,
                        self.kpi_ects, self.kpi_acquired, self.kpi_toeic)
+        for tile in recap_tiles:
+            tile.setObjectName("SummaryItem")
+            tile.setMinimumHeight(70)
         self.kpi_layout = kpi_layout
         self.recap_tiles = recap_tiles
         for index, tile in enumerate(recap_tiles):
@@ -228,7 +234,7 @@ class YearRecapWidget(QWidget):
         radar_heading.setWordWrap(True)
         radar_heading.setStyleSheet("font-weight: 700; font-size: 14px;")
         radar_layout.addWidget(radar_heading)
-        legend = QLabel("Barre bleue : moyenne /20 · barre fine : couverture des notes")
+        legend = QLabel("Barre bleue : moyenne /20 · repère : 10/20 · barre fine : couverture")
         legend.setWordWrap(True)
         legend.setProperty("class", "Muted")
         radar_layout.addWidget(legend)
@@ -247,6 +253,7 @@ class YearRecapWidget(QWidget):
         self.module_sort_selector.addItem("État", "status")
         self.module_sort_selector.addItem("Note croissante", "grade_asc")
         self.module_sort_selector.addItem("Note décroissante", "grade_desc")
+        self.module_sort_selector.addItem("Vue par statut", "board")
         self.module_sort_selector.currentIndexChanged.connect(self._refresh_module_table)
         modules_header.addWidget(self.module_sort_selector)
         breakdown_layout.addLayout(modules_header)
@@ -267,6 +274,15 @@ class YearRecapWidget(QWidget):
         self.module_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.module_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
         breakdown_layout.addWidget(self.module_table, 1)
+        self.status_board = QTableWidget(0, 3)
+        self.status_board.setObjectName("YearModuleTable")
+        self.status_board.setHorizontalHeaderLabels(MODULE_STATUSES)
+        self.status_board.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.status_board.verticalHeader().setVisible(False)
+        self.status_board.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.status_board.setWordWrap(True)
+        self.status_board.hide()
+        breakdown_layout.addWidget(self.status_board, 1)
         content.addWidget(breakdown_card, 3)
         layout.addLayout(content, 1)
         self.scroll.setWidget(content_widget)
@@ -279,11 +295,13 @@ class YearRecapWidget(QWidget):
         super().resizeEvent(event)
         self._update_content_direction()
         self._update_kpi_columns()
+        if hasattr(self, "module_sort_selector") and self.module_sort_selector.currentData() == "board":
+            self._refresh_module_table()
 
     def _update_kpi_columns(self):
         if not hasattr(self, "kpi_layout"):
             return
-        columns = 2 if self.width() < 900 else 3
+        columns = 2 if self.width() < 750 else (3 if self.width() < 1200 else 6)
         while self.kpi_layout.count():
             self.kpi_layout.takeAt(0)
         for index, tile in enumerate(self.recap_tiles):
@@ -363,6 +381,42 @@ class YearRecapWidget(QWidget):
                     })
 
         sort_mode = self.module_sort_selector.currentData()
+        board_visible = sort_mode == "board"
+        self.module_table.setVisible(not board_visible)
+        self.status_board.setVisible(board_visible)
+        if board_visible:
+            groups = {status: [] for status in MODULE_STATUSES}
+            for row in rows:
+                groups.setdefault(row["status"], []).append(row)
+            self.status_board.clearContents()
+            if self.width() < 1050:
+                self.status_board.setColumnCount(1)
+                self.status_board.setHorizontalHeaderLabels(["Modules par état"])
+                self.status_board.setRowCount(len(rows) + len(MODULE_STATUSES))
+                index = 0
+                for status in MODULE_STATUSES:
+                    heading = QTableWidgetItem(status)
+                    heading.setBackground(QColor("#3b82f6"))
+                    heading.setForeground(QColor("white"))
+                    self.status_board.setItem(index, 0, heading)
+                    index += 1
+                    for row in groups[status]:
+                        note = "—" if row["grade"] is None else f"{row['grade']:.2f}/20"
+                        self.status_board.setItem(index, 0, QTableWidgetItem(
+                            f"{row['module']}\n{row['block']} · {note}"
+                        ))
+                        index += 1
+            else:
+                self.status_board.setColumnCount(3)
+                self.status_board.setHorizontalHeaderLabels(MODULE_STATUSES)
+                self.status_board.setRowCount(max((len(group) for group in groups.values()), default=0))
+                for column, status in enumerate(MODULE_STATUSES):
+                    for index, row in enumerate(groups[status]):
+                        note = "—" if row["grade"] is None else f"{row['grade']:.2f}/20"
+                        self.status_board.setItem(index, column, QTableWidgetItem(
+                            f"{row['module']}\n{row['block']} · {note}"
+                        ))
+            self.status_board.resizeRowsToContents()
         status_order = {status: index for index, status in enumerate(MODULE_STATUSES)}
         if sort_mode == "grade_asc":
             rows.sort(key=lambda row: (

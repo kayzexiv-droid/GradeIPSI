@@ -1,7 +1,7 @@
 """Window controls integrated into the application menu bar."""
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QHBoxLayout, QMenuBar, QWidget
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel, QMenuBar, QWidget
 
 from ui_icons import IconButton
 
@@ -19,6 +19,15 @@ class WindowTitleBar(QMenuBar):
         super().__init__(window)
         self.setNativeMenuBar(False)
         self._drag_start = None
+
+        logo_container = QWidget(self)
+        logo_layout = QHBoxLayout(logo_container)
+        logo_layout.setContentsMargins(10, 0, 6, 0)
+        logo = QLabel(logo_container)
+        logo.setAccessibleName("GradeIPSI")
+        logo.setPixmap(window.windowIcon().pixmap(24, 24))
+        logo_layout.addWidget(logo)
+        self.setCornerWidget(logo_container, Qt.Corner.TopLeftCorner)
 
         controls = QWidget(self)
         layout = QHBoxLayout(controls)

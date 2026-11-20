@@ -372,7 +372,6 @@ def make_stylesheet(settings):
         bg, surface, surface2 = "#f1f5f9", "#ffffff", "#e7edf5"
         border, text, muted, field = "#cbd5e1", "#0f172a", "#475569", "#ffffff"
         hover = "#e2e8f0"
-    module_surface = "#101a2b" if dark else "#f8fafc"
     close_hover = "#7f1d1d" if dark else "#fee2e2"
     stylesheet = f"""
         QMainWindow, QDialog {{ background-color: {bg}; }}
@@ -401,11 +400,12 @@ def make_stylesheet(settings):
         QTabBar::tab:hover:!selected {{ background: {hover}; color: {text}; }}
         QFrame#Card, QFrame.Card {{ background: {surface}; border: 1px solid {border}; border-radius: 12px; }}
         QFrame#KpiTile {{ background: {surface}; border: 1px solid {border}; border-radius: 12px; }}
+        QFrame#SummaryItem {{ background: transparent; border: none; border-left: 1px solid {border}; border-radius: 0; }}
         QLabel.BlockHeader {{ font-size: {font_size + 2}px; font-weight: 700; }}
         QLabel.Muted {{ color: {muted}; }}
         QLineEdit {{ background: {field}; border: 1px solid {border}; border-radius: 7px; color: {text}; padding: 7px 9px; selection-background-color: {accent}; }}
         QLineEdit:focus {{ border: 2px solid {accent}; }}
-        QFrame#ModuleRow {{ background: {module_surface}; border: 1px solid {border}; border-radius: 9px; }}
+        QFrame#ModuleRow {{ background: transparent; border: none; border-bottom: 1px solid {border}; border-radius: 0; }}
         QLabel#ModuleName {{ font-size: {font_size + 2}px; font-weight: 700; }}
         QLabel#ModuleWeight {{ background: {surface2}; color: {muted}; border-radius: 6px; padding: 4px 7px; font-weight: 600; }}
         QLabel#ModuleFieldLabel {{ color: {muted}; font-weight: 600; }}
