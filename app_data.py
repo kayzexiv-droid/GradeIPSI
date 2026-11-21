@@ -183,16 +183,7 @@ CURRICULUM_DATA = {
                 "semester": 9,
                 "ects": 15,
                 "modules": [
-                    {"name": "Apprentissage en entreprise - Semestre 9", "weight": None, "status_only": True},
                     {"name": "Bilan des compétences", "weight": 100},
-                ],
-            },
-            {
-                "name": "Compétence linguistique (S9)",
-                "semester": 9,
-                "ects": 0,
-                "modules": [
-                    {"name": "Niveau en langue anglaise (S9)", "weight": None},
                 ],
             },
             {
@@ -234,25 +225,8 @@ CURRICULUM_DATA = {
                 "semester": 10,
                 "ects": 15,
                 "modules": [
-                    {"name": "Apprentissage en entreprise - Semestre 10", "weight": None, "status_only": True},
                     {"name": "Soutenance de l'année 3", "weight": 90},
                     {"name": "Self marketing et projet professionnel", "weight": 100},
-                ],
-            },
-            {
-                "name": "Compétence linguistique (S10)",
-                "semester": 10,
-                "ects": 0,
-                "modules": [
-                    {"name": "Niveau en langue anglaise (S10)", "weight": None},
-                ],
-            },
-            {
-                "name": "Validation du diplôme (S10)",
-                "semester": 10,
-                "ects": 0,
-                "modules": [
-                    {"name": "Niveau d'anglais et compétences internationales", "weight": None, "status_only": True},
                 ],
             },
         ],
@@ -286,7 +260,6 @@ DEFAULT_SETTINGS = {
     "font_size": 10,
     "ui_scale": 100,
     "display_resolution": "Automatique",
-    "view_mode": "Confortable",
     "dashboard_year": "Année 1 (IPSI 1)",
     # Seuils indicatifs, modifiables dans les paramètres. La décision du jury
     # et les règles propres à la promotion prévalent toujours.
@@ -383,6 +356,9 @@ def make_stylesheet(settings):
         QMenuBar {{ background: {surface}; color: {text}; border-bottom: 1px solid {border}; }}
         QMenuBar::item {{ padding: 8px 10px; border-radius: 5px; }}
         QMenuBar::item:selected, QMenu::item:selected {{ background: {accent}; color: white; }}
+        QToolButton#ToolbarCommand {{ background: transparent; color: {text}; border: 1px solid transparent; border-radius: 6px; min-width: 30px; min-height: 28px; }}
+        QToolButton#ToolbarCommand:hover {{ background: {hover}; }}
+        QToolButton#ToolbarCommand:focus {{ border-color: {muted}; }}
         QToolButton#WindowControlButton, QToolButton#WindowCloseButton {{
             background: transparent; color: {text}; border: 1px solid transparent;
             min-width: 40px; min-height: 34px;
@@ -405,9 +381,15 @@ def make_stylesheet(settings):
         QLabel.Muted {{ color: {muted}; }}
         QLineEdit {{ background: {field}; border: 1px solid {border}; border-radius: 7px; color: {text}; padding: 7px 9px; selection-background-color: {accent}; }}
         QLineEdit:focus {{ border: 2px solid {accent}; }}
-        QFrame#ModuleRow {{ background: transparent; border: none; border-bottom: 1px solid {border}; border-radius: 0; }}
-        QLabel#ModuleName {{ font-size: {font_size + 2}px; font-weight: 700; }}
-        QLabel#ModuleWeight {{ background: {surface2}; color: {muted}; border-radius: 6px; padding: 4px 7px; font-weight: 600; }}
+        QFrame#GradeSection {{ background: transparent; border: none; }}
+        QFrame#GradeSectionHeader {{ background: {surface2}; border-left: 3px solid {accent}; border-radius: 6px; }}
+        QFrame#ModuleSeparator {{ background: {border}; border: none; }}
+        QFrame#GradeSection QLabel, QFrame#GradeSection QLineEdit, QFrame#GradeSection QComboBox {{
+            font-family: 'Arial'; font-size: {font_size + 2}px;
+        }}
+        QFrame#GradeSection QLabel.BlockHeader {{ font-size: {font_size + 7}px; font-weight: 700; }}
+        QFrame#GradeSection QLabel#SectionAverage {{ font-size: {font_size + 4}px; font-weight: 700; }}
+        QFrame#GradeSection QLabel#ModuleName {{ font-size: {font_size + 3}px; font-weight: 600; }}
         QLabel#ModuleFieldLabel {{ color: {muted}; font-weight: 600; }}
         QLabel#ModuleTarget {{ color: {text}; font-weight: 700; }}
         QLineEdit#ModuleGrade {{ font-size: {font_size + 2}px; font-weight: 700; }}
@@ -423,7 +405,6 @@ def make_stylesheet(settings):
         QToolButton#SidebarLink:hover {{ background: {hover}; }}
         QToolButton#SidebarLink:checked {{ background: {surface2}; border-color: {accent}; }}
         QToolButton#SidebarLink:focus {{ border: 1px dashed {muted}; }}
-        QToolButton#BlockToggle {{ background: transparent; border: 1px solid {border}; border-radius: 6px; padding: 5px 8px; }}
         QFrame#Separator {{ background: {border}; max-height: 1px; }}
         QScrollArea {{ border: none; background: transparent; }}
         QWidget#ModuleList, QWidget#YearRecapContent {{ background: {bg}; }}

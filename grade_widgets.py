@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt, QLocale
 
 from PySide6.QtGui import QDoubleValidator, QIntValidator, QKeySequence, QShortcut
 
-from PySide6.QtWidgets import QWidget, QBoxLayout, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit, QFrame, QScrollArea, QComboBox, QToolButton, QProgressBar, QSizePolicy, QTabWidget
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit, QFrame, QScrollArea, QComboBox, QSizePolicy, QTabWidget
 
 from app_data import DEFAULT_SETTINGS, MODULE_STATUSES, calculate_weighted_metrics
 
@@ -36,16 +36,15 @@ class KpiTile(QFrame):
         self.subtitle_label.setText(subtitle)
 
 class BlockCardWidget(QFrame):
-    """Carte d'un bloc avec KPI, barre de progression et détail des modules."""
+    """Section du relevé avec saisie directe des résultats du bloc."""
     def __init__(self, block_data, on_grade_changed_callback, settings_provider=None):
         super().__init__()
-        self.setObjectName("Card")
+        self.setObjectName("GradeSection")
         self.block_data = block_data
         self.on_grade_changed_callback = on_grade_changed_callback
         self.settings_provider = settings_provider or (lambda: DEFAULT_SETTINGS)
         self.inputs = {}
         self.grade_input_order = []
-        self.view_mode = "Confortable"
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
         self.init_ui()
 
@@ -54,74 +53,54 @@ class BlockCardWidget(QFrame):
         layout.setContentsMargins(15, 13, 15, 14)
         layout.setSpacing(9)
 
-        header = QHBoxLayout()
+        section_header = QFrame()
+        section_header.setObjectName("GradeSectionHeader")
+        header = QHBoxLayout(section_header)
+        header.setContentsMargins(12, 9, 12, 9)
+        header.setSpacing(14)
         ects = self.block_data["ects"]
         detail = f"{ects} ECTS" if ects else "Validation séparée"
-        self.lbl_title = QLabel(f"{self.block_data['name']}  ·  {detail}")
+        self.lbl_title = QLabel(self.block_data["name"])
         self.lbl_title.setProperty("class", "BlockHeader")
         self.lbl_title.setWordWrap(True)
         self.lbl_average = QLabel("— / 20")
-        self.lbl_average.setAlignment(Qt.AlignCenter)
-        self.lbl_average.setMinimumWidth(100)
-        self.lbl_average.setProperty("class", "HeaderBadge")
-        self.update_badge_style(None)
+        self.lbl_average.setObjectName("SectionAverage")
         self.lbl_completion = QLabel("Notes : 0 %")
         self.lbl_completion.setProperty("class", "Muted")
-        self.lbl_completion.setMinimumWidth(92)
-        self.btn_toggle = QToolButton()
-        self.btn_toggle.setObjectName("BlockToggle")
-        self.btn_toggle.setText("Réduire")
-        self.btn_toggle.setToolButtonStyle(Qt.ToolButtonTextOnly)
-        self.btn_toggle.setCheckable(True)
-        self.btn_toggle.setChecked(True)
-        self.btn_toggle.toggled.connect(self.toggle_details)
         header.addWidget(self.lbl_title, 1)
         header.addWidget(self.lbl_completion)
-        header.addWidget(self.lbl_average)
-        header.addWidget(self.btn_toggle)
-        layout.addLayout(header)
+        if ects:
+            header.addWidget(self.lbl_average)
+        else:
+            self.lbl_average.hide()
+        credits = QLabel(detail)
+        credits.setProperty("class", "Muted")
+        header.addWidget(credits)
+        layout.addWidget(section_header)
 
-        self.progress = QProgressBar()
-        self.progress.setRange(0, 200)
-        self.progress.setValue(0)
-        self.progress.setTextVisible(False)
-        self.progress.setFixedHeight(8)
-        self.progress.setToolTip("Progression de la moyenne du bloc sur 20")
-        self.lbl_average.setVisible(bool(ects))
-        self.progress.setVisible(bool(ects))
-        layout.addWidget(self.progress)
-
-        self.details_widget = QWidget()
-        details_layout = QVBoxLayout(self.details_widget)
-        details_layout.setContentsMargins(0, 1, 0, 0)
-        details_layout.setSpacing(8)
-        self.lbl_target_info = QLabel("Saisissez vos notes pour calculer la moyenne du bloc.")
-        self.lbl_target_info.setWordWrap(True)
-        self.lbl_target_info.setProperty("class", "Muted")
-        details_layout.addWidget(self.lbl_target_info)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(8)
+        grid.setColumnStretch(0, 1)
+        for column, width in enumerate((0, 56, 78, 115, 62)):
+            grid.setColumnMinimumWidth(column, width)
+        for column, label in enumerate(("Module", "Poids", "Note /20", "État", "Objectif")):
+            heading = QLabel(label)
+            heading.setObjectName("ModuleFieldLabel")
+            grid.addWidget(heading, 0, column, Qt.AlignLeft if column == 0 else Qt.AlignHCenter)
 
         validator = QDoubleValidator(0.0, 20.0, 2, self)
         validator.setNotation(QDoubleValidator.StandardNotation)
         validator.setLocale(QLocale())
-        for module in self.block_data["modules"]:
-            row = QFrame()
-            row.setObjectName("ModuleRow")
-            row_layout = QBoxLayout(QBoxLayout.TopToBottom, row)
-            row_layout.setContentsMargins(13, 9, 13, 9)
-            row_layout.setSpacing(10)
-
-            identity = QHBoxLayout()
+        for row, module in enumerate(self.block_data["modules"], start=1):
             name_label = QLabel(module["name"])
             name_label.setObjectName("ModuleName")
             name_label.setWordWrap(True)
-            identity.addWidget(name_label, 1)
             weight = module["weight"]
-            weight_label = QLabel("Sans coefficient" if weight is None else f"Poids {weight:g} %")
-            weight_label.setObjectName("ModuleWeight")
+            weight_label = QLabel("—" if weight is None else f"{weight:g} %")
+            weight_label.setProperty("class", "Muted")
             if weight is None:
                 weight_label.setToolTip("Aucun poids indiqué dans la maquette.")
-            identity.addWidget(weight_label, alignment=Qt.AlignVCenter)
-            row_layout.addLayout(identity, 1)
 
             grade_input = QLineEdit()
             grade_input.setObjectName("ModuleGrade")
@@ -158,22 +137,17 @@ class BlockCardWidget(QFrame):
                 "Note moyenne à viser dans les modules non notés pour atteindre 10/20."
             )
 
-            fields = QGridLayout()
-            fields.setHorizontalSpacing(12)
-            fields.setVerticalSpacing(3)
-            fields.setAlignment(Qt.AlignLeft)
-            for column, (text, widget) in enumerate((
-                ("Note /20", grade_input), ("État", status_selector), ("Objectif", target_label),
-            )):
-                caption = QLabel(text)
-                caption.setObjectName("ModuleFieldLabel")
-                fields.addWidget(caption, 0, column, Qt.AlignHCenter)
-                fields.addWidget(widget, 1, column)
-            fields.setColumnMinimumWidth(2, 58)
-            row_layout.addLayout(fields)
-            details_layout.addWidget(row)
+            cells = (name_label, weight_label, grade_input, status_selector, target_label)
+            for column, cell in enumerate(cells):
+                alignment = Qt.AlignHCenter if column in (1, 2, 4) else Qt.AlignVCenter
+                grid.addWidget(cell, row * 2, column, alignment)
+            separator = QFrame()
+            separator.setObjectName("ModuleSeparator")
+            separator.setFixedHeight(1)
+            grid.addWidget(separator, row * 2 - 1, 0, 1, len(cells))
             self.inputs[module["name"]] = {
-                "row": row,
+                "cells": cells,
+                "separator": separator,
                 "weight": weight,
                 "input": grade_input,
                 "status": status_selector,
@@ -187,6 +161,11 @@ class BlockCardWidget(QFrame):
                 )
             self.update_module_status_style(status_selector, MODULE_STATUSES[0])
 
+        layout.addLayout(grid)
+        self.lbl_target_info = QLabel()
+        self.lbl_target_info.setWordWrap(True)
+        self.lbl_target_info.setProperty("class", "Muted")
+        layout.addWidget(self.lbl_target_info)
         total_weight = sum(item["weight"] for _, item in self.weighted_modules())
         if total_weight and total_weight != 100:
             note = QLabel(
@@ -195,8 +174,7 @@ class BlockCardWidget(QFrame):
             )
             note.setProperty("class", "Muted")
             note.setWordWrap(True)
-            details_layout.addWidget(note)
-        layout.addWidget(self.details_widget)
+            layout.addWidget(note)
         self.recalculate()
 
     def on_module_status_changed(self, selector, status):
@@ -230,23 +208,6 @@ class BlockCardWidget(QFrame):
                 field.setFocus()
                 field.selectAll()
                 return
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        direction = QBoxLayout.LeftToRight if self.width() >= 590 else QBoxLayout.TopToBottom
-        for item in self.inputs.values():
-            item["row"].layout().setDirection(direction)
-
-    def toggle_details(self, expanded):
-        self.details_widget.setVisible(expanded)
-        self.btn_toggle.setText("Réduire" if expanded else "Détails")
-
-    def set_view_mode(self, mode):
-        self.view_mode = mode
-        if mode == "Résumé compact":
-            self.btn_toggle.setChecked(False)
-        else:
-            self.btn_toggle.setChecked(True)
 
     def on_input_changed(self):
         self.recalculate()
@@ -297,13 +258,8 @@ class BlockCardWidget(QFrame):
         completion = metrics["completion_pct"]
         self.lbl_completion.setText(f"Notes : {completion:.0f} %")
         self.lbl_completion.setToolTip(f"{metrics['entered_count']}/{metrics['module_count']} modules pondérés renseignés")
-        if current_avg is None:
-            self.lbl_average.setText("— / 20")
-            self.progress.setValue(0)
-        else:
-            self.lbl_average.setText(f"{current_avg:.2f} / 20")
-            self.progress.setValue(round(current_avg * 10))
-        self.update_badge_style(current_avg)
+        average = "—" if current_avg is None else f"{current_avg:.2f}"
+        self.lbl_average.setText(f"{average} / 20")
 
         needed = metrics["target_needed"]
         dark = (self.settings_provider() or DEFAULT_SETTINGS).get("theme", "Sombre") == "Sombre"
@@ -327,17 +283,6 @@ class BlockCardWidget(QFrame):
             self.lbl_target_info.setStyleSheet(
                 f"color: {success_color}; font-weight: 600;" if missing_count == 0 else ""
             )
-
-    def update_badge_style(self, average):
-        if average is None:
-            style = "background-color: #334155; color: #cbd5e1; border-radius: 7px; padding: 6px 8px; font-weight: 800;"
-        elif average < 8:
-            style = "background-color: #7f1d1d; color: #fecaca; border: 1px solid #ef4444; border-radius: 7px; padding: 6px 8px; font-weight: 800;"
-        elif average < 10:
-            style = "background-color: #78350f; color: #fde68a; border: 1px solid #f59e0b; border-radius: 7px; padding: 6px 8px; font-weight: 800;"
-        else:
-            style = "background-color: #064e3b; color: #a7f3d0; border: 1px solid #10b981; border-radius: 7px; padding: 6px 8px; font-weight: 800;"
-        self.lbl_average.setStyleSheet(style)
 
     def weighted_modules(self):
         return (
@@ -396,7 +341,6 @@ class YearTabWidget(QWidget):
         self.module_scrolls = {}
         self.semester_tabs = None
         self.uses_annual_alternance = bool(year_config.get("alternance_ects", 23))
-        self.view_mode = "Confortable"
         self.init_ui()
 
     def init_ui(self):
@@ -506,10 +450,19 @@ class YearTabWidget(QWidget):
             self.semester_tabs.setObjectName("SemesterTabs")
             self.semester_tabs.setAccessibleName("Semestres de la troisième année")
             main_layout.addWidget(self.semester_tabs, 1)
-        for index, semester in enumerate(self.blocks_by_semester, start=1):
+        for index, (semester, blocks) in enumerate(self.blocks_by_semester.items(), start=1):
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
             scroll.setFrameShape(QFrame.NoFrame)
+            container = QWidget()
+            container.setObjectName("ModuleList")
+            sections = QVBoxLayout(container)
+            sections.setContentsMargins(1, 5, 8, 4)
+            sections.setSpacing(16)
+            for block in blocks:
+                sections.addWidget(block)
+            sections.addStretch(1)
+            scroll.setWidget(container)
             self.module_scrolls[semester] = scroll
             if self.semester_tabs is None:
                 main_layout.addWidget(scroll, 1)
@@ -517,32 +470,8 @@ class YearTabWidget(QWidget):
                 self.semester_tabs.addTab(scroll, f"Semestre {index} · S{semester}")
         if self.semester_tabs is not None:
             self.semester_tabs.currentChanged.connect(self.apply_module_filters)
-        self.set_view_mode(self.view_mode)
-        self.update_year_summary()
-
-    def set_view_mode(self, mode):
-        self.view_mode = mode
-        grid_mode = mode == "Grille (2 colonnes)"
-        card_mode = "Confortable" if grid_mode else mode
-        for semester, blocks in self.blocks_by_semester.items():
-            new_container = QWidget()
-            new_container.setObjectName("ModuleList")
-            new_layout = QGridLayout(new_container) if grid_mode else QVBoxLayout(new_container)
-            new_layout.setContentsMargins(1, 5, 8, 4)
-            new_layout.setSpacing(14)
-            for index, block in enumerate(blocks):
-                block.setParent(new_container)
-                block.set_view_mode(card_mode)
-                if grid_mode:
-                    new_layout.addWidget(block, index // 2, index % 2, Qt.AlignTop)
-                else:
-                    new_layout.addWidget(block)
-            if grid_mode:
-                new_layout.setRowStretch((len(blocks) + 1) // 2, 1)
-            else:
-                new_layout.addStretch(1)
-            self.module_scrolls[semester].setWidget(new_container)
         self.apply_module_filters()
+        self.update_year_summary()
 
     def on_internal_changed(self):
         self.apply_module_filters()
@@ -579,7 +508,9 @@ class YearTabWidget(QWidget):
                         or (selected_status == "no_grade" and not grade_entered)
                     )
                 )
-                item["row"].setVisible(matches)
+                for cell in item["cells"]:
+                    cell.setVisible(matches)
+                item["separator"].setVisible(matches and block_matches > 0)
                 if matches:
                     visible_modules += in_active_semester
                     block_matches += 1

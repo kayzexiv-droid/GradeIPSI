@@ -90,6 +90,7 @@ class RadarChartWidget(QWidget):
 
 class YearBlockBarsWidget(QWidget):
     """Comparaison lisible des moyennes et de la couverture par bloc."""
+    ROW_HEIGHT = 68
     def __init__(self, parent=None):
         super().__init__(parent)
         self.rows = []
@@ -111,7 +112,7 @@ class YearBlockBarsWidget(QWidget):
             self.track_color = QColor("#e2e8f0")
             self.text_color = QColor("#1e293b")
             self.muted_color = QColor("#64748b")
-        self.setMinimumHeight(max(120, len(self.rows) * 55 + 22))
+        self.setMinimumHeight(max(120, len(self.rows) * self.ROW_HEIGHT + 22))
         self.update()
 
     def paintEvent(self, event):
@@ -124,39 +125,39 @@ class YearBlockBarsWidget(QWidget):
             return
 
         left = 12
-        right = 58
+        right = 82
         available_width = max(1, self.width() - left - right)
-        painter.setFont(QFont(self.font().family(), max(8, self.font().pointSize())))
+        painter.setFont(QFont(self.font().family(), max(11, self.font().pointSize())))
         for index, row in enumerate(self.rows):
-            top = 8 + index * 55
-            name = row["name"]
+            top = 8 + index * self.ROW_HEIGHT
+            name = painter.fontMetrics().elidedText(row["name"], Qt.ElideRight, available_width)
             average = row["provisional_average"]
             completion = max(0.0, min(100.0, float(row["completion_pct"])))
             painter.setPen(self.text_color)
-            painter.drawText(QRectF(left, top, available_width, 17), Qt.AlignLeft | Qt.AlignVCenter, name)
+            painter.drawText(QRectF(left, top, available_width, 23), Qt.AlignLeft | Qt.AlignVCenter, name)
             painter.setPen(self.muted_color)
             average_text = "— / 20" if average is None else f"{average:.2f} / 20"
-            painter.drawText(QRectF(self.width() - right, top, right - 8, 17), Qt.AlignRight | Qt.AlignVCenter, average_text)
+            painter.drawText(QRectF(self.width() - right, top, right - 8, 23), Qt.AlignRight | Qt.AlignVCenter, average_text)
 
-            bar_top = top + 21
+            bar_top = top + 27
             painter.setPen(Qt.NoPen)
             painter.setBrush(QBrush(self.track_color))
-            painter.drawRoundedRect(QRectF(left, bar_top, available_width, 10), 5, 5)
+            painter.drawRoundedRect(QRectF(left, bar_top, available_width, 14), 7, 7)
             if average is not None:
                 score_width = available_width * max(0.0, min(20.0, float(average))) / 20.0
                 painter.setBrush(QBrush(self.accent))
-                painter.drawRoundedRect(QRectF(left, bar_top, score_width, 10), 5, 5)
+                painter.drawRoundedRect(QRectF(left, bar_top, score_width, 14), 7, 7)
             painter.setPen(QPen(self.text_color, 1))
             painter.drawLine(QPointF(left + available_width / 2, bar_top - 2),
-                             QPointF(left + available_width / 2, bar_top + 12))
+                             QPointF(left + available_width / 2, bar_top + 16))
 
-            coverage_top = bar_top + 13
+            coverage_top = bar_top + 19
             painter.setBrush(QBrush(self.track_color))
-            painter.drawRoundedRect(QRectF(left, coverage_top, available_width, 4), 2, 2)
+            painter.drawRoundedRect(QRectF(left, coverage_top, available_width, 6), 3, 3)
             if completion:
                 painter.setBrush(QBrush(self.muted_color))
                 painter.drawRoundedRect(
-                    QRectF(left, coverage_top, available_width * completion / 100.0, 4), 2, 2
+                    QRectF(left, coverage_top, available_width * completion / 100.0, 6), 3, 3
                 )
 
 class YearRecapWidget(QWidget):
@@ -203,7 +204,10 @@ class YearRecapWidget(QWidget):
                        self.kpi_ects, self.kpi_acquired, self.kpi_toeic)
         for tile in recap_tiles:
             tile.setObjectName("SummaryItem")
-            tile.setMinimumHeight(70)
+            tile.setMinimumHeight(100)
+            tile.title_label.setStyleSheet("font-size: 13px; font-weight: 700;")
+            tile.value_label.setStyleSheet("font-size: 30px; font-weight: 800;")
+            tile.subtitle_label.setStyleSheet("font-size: 12px;")
         self.kpi_layout = kpi_layout
         self.recap_tiles = recap_tiles
         for index, tile in enumerate(recap_tiles):
@@ -232,7 +236,7 @@ class YearRecapWidget(QWidget):
         radar_layout = QVBoxLayout(radar_card)
         radar_heading = QLabel("Moyenne et couverture par bloc")
         radar_heading.setWordWrap(True)
-        radar_heading.setStyleSheet("font-weight: 700; font-size: 14px;")
+        radar_heading.setStyleSheet("font-weight: 700; font-size: 18px;")
         radar_layout.addWidget(radar_heading)
         legend = QLabel("Barre bleue : moyenne /20 · repère : 10/20 · barre fine : couverture")
         legend.setWordWrap(True)

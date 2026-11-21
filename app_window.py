@@ -8,11 +8,11 @@ from copy import deepcopy
 
 from PySide6.QtCore import QTimer, QEvent, QUrl, Qt
 
-from PySide6.QtGui import QAction, QActionGroup, QFont, QKeySequence, QIcon, QDesktopServices
+from PySide6.QtGui import QAction, QFont, QKeySequence, QIcon, QDesktopServices
 
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QComboBox, QDialog, QFileDialog, QFrame,
-    QHBoxLayout, QLabel, QMainWindow, QMessageBox, QProgressBar, QProgressDialog,
+    QHBoxLayout, QLabel, QMainWindow, QMenu, QMessageBox, QProgressBar, QProgressDialog,
     QStackedWidget, QStatusBar, QVBoxLayout, QWidget,
 )
 
@@ -54,7 +54,6 @@ class GradeTrackerApp(QMainWindow):
             )
         self.settings = deepcopy(DEFAULT_SETTINGS)
         self.year_tabs = {}
-        self.view_mode_actions = {}
         self._restoring = False
         self._history = []
         self._history_index = -1
@@ -163,7 +162,7 @@ class GradeTrackerApp(QMainWindow):
         self.title_bar = WindowTitleBar(self)
         self.setMenuBar(self.title_bar)
         self._create_actions()
-        self._create_menus()
+        self._create_toolbar()
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -298,39 +297,33 @@ class GradeTrackerApp(QMainWindow):
         self.action_show_navigation.setCheckable(True)
         self.action_show_navigation.setChecked(True)
 
-    def _create_menus(self):
-        file_menu = self.menuBar().addMenu("Fichier")
-        file_menu.addAction(self.action_save)
-        file_menu.addAction(self.action_export)
-        file_menu.addSeparator()
-        file_menu.addAction(self.action_reset)
-        file_menu.addAction(self.action_quit)
+    def _create_toolbar(self):
+        for action in (
+            self.action_save, self.action_export, self.action_undo,
+            self.action_redo, self.action_quit, self.action_fullscreen,
+        ):
+            self.addAction(action)
 
-        edit_menu = self.menuBar().addMenu("Édition")
-        edit_menu.addAction(self.action_undo)
-        edit_menu.addAction(self.action_redo)
+        for filename, label, action in (
+            ("file-csv.png", "Exporter CSV (Ctrl+E)", self.action_export),
+            ("floppy-disks.png", "Enregistrer les notes (Ctrl+S)", self.action_save),
+            ("github.png", "À propos · GitHub", self.action_about),
+            ("settings.png", "Paramètres · clic droit pour plus d’options", self.action_settings),
+        ):
+            button = IconButton(filename, label, 18)
+            button.setObjectName("ToolbarCommand")
+            button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            button.clicked.connect(action.trigger)
+            self.title_bar.command_layout.addWidget(button)
 
-        view_menu = self.menuBar().addMenu("Affichage")
-        self.view_modes_menu = view_menu.addMenu("Modes d'affichage")
-        mode_group = QActionGroup(self)
-        mode_group.setExclusive(True)
-        for mode in ("Confortable", "Grille (2 colonnes)", "Résumé compact"):
-            action = QAction(mode, self)
-            action.setCheckable(True)
-            action.setChecked(mode == self.settings.get("view_mode", "Confortable"))
-            mode_group.addAction(action)
-            self.view_mode_actions[mode] = action
-            action.triggered.connect(lambda checked=False, m=mode: self.set_view_mode(m))
-            self.view_modes_menu.addAction(action)
-        view_menu.addSeparator()
-        view_menu.addAction(self.action_show_navigation)
-        view_menu.addAction(self.action_fullscreen)
-
-        settings_menu = self.menuBar().addMenu("Préférences")
-        settings_menu.addAction(self.action_settings)
-        settings_menu.addAction(self.action_check_updates)
-        self.menuBar().addAction(self.action_about)
-        self._menus = (file_menu, edit_menu, view_menu, settings_menu)
+        options = QMenu(button)
+        options.addAction(self.action_check_updates)
+        options.addAction(self.action_show_navigation)
+        options.addAction(self.action_fullscreen)
+        options.addSeparator()
+        options.addAction(self.action_reset)
+        button.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        button.customContextMenuRequested.connect(lambda point: options.popup(button.mapToGlobal(point)))
 
     def open_project_page(self):
         if not QDesktopServices.openUrl(QUrl(PROJECT_URL)):
@@ -350,19 +343,6 @@ class GradeTrackerApp(QMainWindow):
         self.modules_stack.setCurrentWidget(self.year_tabs[year_name])
         self.recap_tab.refresh()
         self.simulation_tab.refresh_for_year()
-
-    def set_view_mode(self, mode):
-        if mode not in ("Confortable", "Grille (2 colonnes)", "Résumé compact"):
-            return
-        for action_mode, action in self.view_mode_actions.items():
-            action.setChecked(action_mode == mode)
-        for tab in self.year_tabs.values():
-            tab.set_view_mode(mode)
-        self.settings["view_mode"] = mode
-        if hasattr(self, "recap_tab"):
-            self.recap_tab.refresh()
-        if not self._restoring:
-            self.save_data_quietly()
 
     def _set_fullscreen(self, enabled):
         if enabled and not self.isFullScreen():
@@ -633,12 +613,6 @@ class GradeTrackerApp(QMainWindow):
             font = widget.font()
             font.setFamily(font_family)
             widget.setFont(font)
-        mode = self.settings.get("view_mode", "Confortable")
-        if mode not in self.view_mode_actions:
-            mode = "Confortable"
-        self.settings["view_mode"] = mode
-        for action_mode, action in self.view_mode_actions.items():
-            action.setChecked(action_mode == mode)
         for tab in self.year_tabs.values():
             for block in tab.block_widgets:
                 for item in block.inputs.values():
@@ -646,7 +620,6 @@ class GradeTrackerApp(QMainWindow):
                         item["status"], item["status"].currentText()
                     )
                 block.recalculate()
-            tab.set_view_mode(mode)
             tab.update_year_summary()
         selected_year = self.settings.get("dashboard_year", next(iter(self.year_tabs), ""))
         if not isinstance(selected_year, str) or selected_year not in self.year_tabs:

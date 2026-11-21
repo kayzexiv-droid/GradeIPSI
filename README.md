@@ -41,7 +41,7 @@ L'interface est en français et s'appuie sur Python et PySide6 (Qt).
 - Enregistrement automatique local, sauvegarde JSON manuelle, export CSV et
   historique Annuler/Rétablir.
 - Thème sombre ou clair, couleur d'accentuation, police, échelle de l'interface
-  et résolution de la fenêtre, ainsi que plusieurs modes d'affichage.
+  et résolution de la fenêtre.
 - Vérification des nouvelles versions au démarrage et dans **Préférences →
   Rechercher des mises à jour…**. Dans la version Windows installée, le bouton
   **Installer et redémarrer** télécharge la mise à jour, sauvegarde les notes,
@@ -140,7 +140,7 @@ son interpréteur :
    partagée entre **Dashboard**, **Modules** et **Simulateur**. Ces vues sont
    accessibles depuis les icônes à gauche. Le menu **Affichage → Volet de
    navigation** permet de masquer ou d'afficher ces icônes.
-2. Dans **Modules**, développez un bloc et saisissez les notes
+2. Dans **Modules**, repérez la section du bloc et saisissez les notes
    disponibles. Les notes acceptées vont de 0 à 20.
 3. Mettez à jour le statut de chaque module : **Pas commencé**, **En cours** ou
    **Terminé**. Le statut est indépendant de la saisie de la note.
@@ -172,10 +172,10 @@ La résolution de fenêtre se règle dans **Préférences > Paramètres**. Le mo
 prédéfinies sont limitées à l'espace disponible. Le réglage d'échelle de
 l'interface reste indépendant.
 
-Le menu **Affichage** propose les modes Confortable, Grille (2 colonnes) et
-Résumé compact, ainsi que le plein écran. Les menus **Fichier** et **Édition**
-permettent respectivement de sauvegarder, exporter, effacer les notes et
-d'annuler ou rétablir les modifications.
+Dans **Modules**, le relevé présente une section par bloc et des colonnes pour
+la saisie des notes et des états. Les icônes de la barre d'outils permettent de
+sauvegarder et d'exporter. Les raccourcis `Ctrl+Z`, `Ctrl+Y` et `F11`
+permettent d'annuler, de rétablir et de basculer en plein écran.
 
 ## Préférences
 

@@ -27,6 +27,7 @@ class WindowTitleBar(QMenuBar):
         logo.setAccessibleName("GradeIPSI")
         logo.setPixmap(window.windowIcon().pixmap(24, 24))
         logo_layout.addWidget(logo)
+        self.command_layout = logo_layout
         self.setCornerWidget(logo_container, Qt.Corner.TopLeftCorner)
 
         controls = QWidget(self)
